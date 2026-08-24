@@ -12,9 +12,9 @@ export function Login() {
   const [email, setEmail] = useState('demo@prismaplay.io');
   const [password, setPassword] = useState('demo1234');
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const result = login(email, password);
+    const result = await login(email, password);
     if (result.ok) {
       toast.success(result.message);
       navigate('/win');

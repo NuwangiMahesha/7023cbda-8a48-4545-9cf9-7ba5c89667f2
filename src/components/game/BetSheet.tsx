@@ -38,9 +38,9 @@ export function BetSheet({ mode, duration, periodId, selection, onClose }: BetSh
   const total = base * quantity;
   const multiplier = selection ? displayMultiplier(selection) : 0;
 
-  function submit() {
+  async function submit() {
     if (!selection) return;
-    const result = placeBet(mode, duration, selection, total);
+    const result = await placeBet(mode, duration, selection, total);
     if (result.ok) {
       toast.success(result.message);
       onClose();

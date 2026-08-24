@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: is the request from a signed-in user?
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: is the request from the document owner?
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // ── users ──────────────────────────────────────────────────────────────
+    // Players can only read and update their own profile.
+    // Only the backend (admin SDK) or the user themselves can create/delete.
+    match /users/{userId} {
+      allow read:   if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId)
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['id', 'email', 'createdAt', 'promoCode']);
+      allow delete: if false;
+    }
+
+    // ── transactions ────────────────────────────────────────────────────────
+    // Any authenticated user can create a transaction for themselves.
+    // Users can only read their own transactions.
+    // Only admin (no direct client rule — enforced via Firestore admin SDK or
+    // a Cloud Function) can update status.  For this client-only setup we
+    // allow updates from any auth'd user so the admin panel works.
+    match /transactions/{txId} {
+      allow read:   if isAuth()
+                    && (resource.data.userId == request.auth.uid);
+      allow create: if isAuth()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth();  // admin panel runs in the browser too
+      allow delete: if false;
+    }
+
+    // ── bets ────────────────────────────────────────────────────────────────
+    // Users can create bets for themselves and read their own bets.
+    // Updates are allowed (round settling patches status, multiplier, payout).
+    match /bets/{betId} {
+      allow read:   if isAuth()
+                    && resource.data.userId == request.auth.uid;
+      allow create: if isAuth()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth();  // settling written by leader tab
+      allow delete: if false;
+    }
+
+    // ── rounds ──────────────────────────────────────────────────────────────
+    // All authenticated users can read rounds (shown in trend/history views).
+    // Any authenticated user can write (leader tab settles rounds).
+    match /rounds/{roundId} {
+      allow read:   if isAuth();
+      allow write:  if isAuth();
+    }
+
+    // ── settings ────────────────────────────────────────────────────────────
+    // All authenticated users can read platform settings (minStake etc.).
+    // Write is allowed from any auth'd session (admin panel runs client-side).
+    // For stronger security, restrict write to an admin UID list.
+    match /settings/{docId} {
+      allow read:  if isAuth();
+      allow write: if isAuth();
+    }
+  }
+}

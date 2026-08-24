@@ -5,8 +5,8 @@ import React, {
   useEffect,
   useMemo,
   useRef,
-  useState } from
-'react';
+  useState,
+} from 'react';
 import {
   Bet,
   BetSelection,
@@ -17,15 +17,9 @@ import {
   RoundDuration,
   Transaction,
   TransactionStatus,
-  User } from
-'../types';
-import {
-  adminCredentials,
-  defaultSettings,
-  seedReferrals,
-  seedTransactions,
-  seedUsers } from
-'../data/seed';
+  User,
+} from '../types';
+import { adminCredentials, defaultSettings, seedReferrals } from '../data/seed';
 import {
   GAME_MODES,
   ROUND_DURATIONS,
@@ -35,10 +29,28 @@ import {
   multiplierFor,
   periodIdFor,
   priceForPeriod,
-  resolveDigit } from
-'../utils/game';
-import { STATE_KEY, readState, writeState } from '../utils/storage';
+  resolveDigit,
+} from '../utils/game';
 import { useLeaderTab } from '../hooks/useLeaderTab';
+import { onAuthChange, signIn, signOutUser, signUp } from '../services/auth';
+import {
+  batchUpdateBets,
+  createBet,
+  createRound,
+  createTransaction,
+  createUserDoc,
+  subscribeBets,
+  subscribeOwnUser,
+  subscribeRounds,
+  subscribeSettings,
+  subscribeTransactions,
+  subscribeUsers,
+  updateSettings as fsUpdateSettings,
+  updateTransaction,
+  updateUserDoc,
+} from '../services/firestore';
+
+/* ─────────────────────────────── types ───────────────────────────────────── */
 
 interface ActionResult {
   ok: boolean;
@@ -53,16 +65,6 @@ interface RegisterInput {
   inviteCode?: string;
 }
 
-interface PersistedState {
-  users: User[];
-  transactions: Transaction[];
-  bets: Bet[];
-  rounds: Round[];
-  settings: PlatformSettings;
-  userId: string | null;
-  isAdmin: boolean;
-}
-
 interface AppContextValue {
   now: number;
   user: User | null;
@@ -73,27 +75,28 @@ interface AppContextValue {
   bets: Bet[];
   rounds: Round[];
   referrals: Referral[];
-  login: (email: string, password: string) => ActionResult;
-  sendVerificationCode: (email: string) => ActionResult & {code?: string;};
-  register: (input: RegisterInput, code: string) => ActionResult;
-  logout: () => void;
+  authLoading: boolean;
+  login: (email: string, password: string) => Promise<ActionResult>;
+  sendVerificationCode: (email: string) => ActionResult & { code?: string };
+  register: (input: RegisterInput, code: string) => Promise<ActionResult>;
+  logout: () => Promise<void>;
   adminLogin: (username: string, password: string) => ActionResult;
   adminLogout: () => void;
   placeBet: (
-  mode: GameMode,
-  duration: RoundDuration,
-  selection: BetSelection,
-  amount: number)
-  => ActionResult;
-  requestRecharge: (usdtAmount: number, reference: string) => ActionResult;
-  requestWithdrawal: (amount: number, address: string) => ActionResult;
-  applyBonusToBalance: () => ActionResult;
-  resetPassword: (current: string, next: string) => ActionResult;
+    mode: GameMode,
+    duration: RoundDuration,
+    selection: BetSelection,
+    amount: number,
+  ) => Promise<ActionResult>;
+  requestRecharge: (usdtAmount: number, reference: string) => Promise<ActionResult>;
+  requestWithdrawal: (amount: number, address: string) => Promise<ActionResult>;
+  applyBonusToBalance: () => Promise<ActionResult>;
+  resetPassword: (current: string, next: string) => Promise<ActionResult>;
   reviewTransaction: (
-  id: string,
-  status: Extract<TransactionStatus, 'approved' | 'rejected'>)
-  => void;
-  updateSettings: (patch: Partial<PlatformSettings>) => void;
+    id: string,
+    status: Extract<TransactionStatus, 'approved' | 'rejected'>,
+  ) => Promise<void>;
+  updateSettings: (patch: Partial<PlatformSettings>) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -110,9 +113,9 @@ function seedRounds(): Round[] {
   ROUND_DURATIONS.forEach((duration) => {
     GAME_MODES.forEach((mode) => {
       for (let i = 12; i >= 1; i -= 1) {
-        const block = blockIndexFor(base, duration) - i;
-        const date = blockStart(block, duration);
-        const digit = Math.floor(Math.random() * 10);
+        const block  = blockIndexFor(base, duration) - i;
+        const date   = blockStart(block, duration);
+        const digit  = Math.floor(Math.random() * 10);
         const periodId = periodIdFor(date, mode, duration);
         out.push({
           periodId,
@@ -120,8 +123,8 @@ function seedRounds(): Round[] {
           duration,
           digit,
           colors: colorsForDigit(digit),
-          price: priceForPeriod(periodId, digit),
-          settledAt: date.getTime()
+          price:  priceForPeriod(periodId, digit),
+          settledAt: date.getTime(),
         });
       }
     });
@@ -129,99 +132,106 @@ function seedRounds(): Round[] {
   return out.sort((a, b) => b.settledAt - a.settledAt);
 }
 
-export function AppProvider({ children }: {children: React.ReactNode;}) {
-  const [restored] = useState<PersistedState | null>(() => readState<PersistedState>());
+/* ─────────────────────────────── provider ────────────────────────────────── */
+
+export function AppProvider({ children }: { children: React.ReactNode }) {
   const isLeader = useLeaderTab();
 
+  /* ── clock ── */
   const [now, setNow] = useState(() => Date.now());
-  const [users, setUsers] = useState<User[]>(restored?.users ?? seedUsers);
-  const [userId, setUserId] = useState<string | null>(restored?.userId ?? null);
-  const [isAdmin, setIsAdmin] = useState<boolean>(restored?.isAdmin ?? false);
-  const [settings, setSettings] = useState<PlatformSettings>({
-    ...defaultSettings,
-    ...(restored?.settings ?? {})
-  });
-  const [transactions, setTransactions] = useState<Transaction[]>(
-    restored?.transactions ?? seedTransactions
-  );
-  const [bets, setBets] = useState<Bet[]>(restored?.bets ?? []);
-  const [rounds, setRounds] = useState<Round[]>(restored?.rounds ?? seedRounds());
-  const [referrals] = useState<Referral[]>(seedReferrals);
-  const [codes, setCodes] = useState<Record<string, {code: string;expiresAt: number;}>>({});
 
-  const blockRefs = useRef<Record<number, number>>({
+  /* ── auth ── */
+  const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  /* ── data ── */
+  const [user, setUser]               = useState<User | null>(null);
+  const [users, setUsers]             = useState<User[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [bets, setBets]               = useState<Bet[]>([]);
+  const [rounds, setRounds]           = useState<Round[]>(seedRounds());
+  const [referrals]                   = useState<Referral[]>(seedReferrals);
+  const [settings, setSettings]       = useState<PlatformSettings>(defaultSettings);
+
+  /* ── pending verification codes (client-side only, no server) ── */
+  const [codes, setCodes] = useState<Record<string, { code: string; expiresAt: number }>>({});
+
+  /* ── mutable refs for use inside setInterval callbacks ── */
+  const betsRef     = useRef<Bet[]>([]);
+  const usersRef    = useRef<User[]>([]);
+  const settingsRef = useRef<PlatformSettings>(settings);
+  const blockRefs   = useRef<Record<number, number>>({
     1: blockIndexFor(Date.now(), 1),
-    3: blockIndexFor(Date.now(), 3)
+    3: blockIndexFor(Date.now(), 3),
   });
-  const betsRef = useRef<Bet[]>([]);
-  const usersRef = useRef<User[]>([]);
-  const settingsRef = useRef(settings);
-  const lastSyncedRef = useRef<string>('');
-  betsRef.current = bets;
-  usersRef.current = users;
+  betsRef.current     = bets;
+  usersRef.current    = users;
   settingsRef.current = settings;
 
-  const user = useMemo(
-    () => users.find((candidate) => candidate.id === userId) ?? null,
-    [users, userId]
-  );
-
-  /* ----------------------------------------------------------- persistence */
+  /* ──────────────────────── auth state listener ─────────────────────────── */
   useEffect(() => {
-    const serialized = JSON.stringify({
-      users,
-      transactions,
-      bets,
-      rounds,
-      settings,
-      userId,
-      isAdmin
+    const unsub = onAuthChange((fbUser) => {
+      setFirebaseUid(fbUser?.uid ?? null);
+      setAuthLoading(false);
     });
-    if (serialized === lastSyncedRef.current) return;
-    lastSyncedRef.current = serialized;
-    writeState(serialized);
-  }, [users, transactions, bets, rounds, settings, userId, isAdmin]);
+    return unsub;
+  }, []);
 
+  /* ──────────────────────── Firestore listeners ─────────────────────────── */
+
+  // Own user profile (runs whenever the signed-in uid changes)
   useEffect(() => {
-    function hydrate(event: StorageEvent) {
-      if (event.key !== STATE_KEY || !event.newValue) return;
-      if (event.newValue === lastSyncedRef.current) return;
-      try {
-        const next = JSON.parse(event.newValue) as PersistedState;
-        lastSyncedRef.current = event.newValue;
-        setUsers(next.users);
-        setTransactions(next.transactions);
-        setBets(next.bets);
-        setRounds(next.rounds);
-        setSettings(next.settings);
-      } catch {
-
-        /* ignore malformed payloads */}
+    if (!firebaseUid) {
+      setUser(null);
+      return;
     }
-    window.addEventListener('storage', hydrate);
-    return () => window.removeEventListener('storage', hydrate);
-  }, []);
+    const unsub = subscribeOwnUser(firebaseUid, (u) => setUser(u));
+    return unsub;
+  }, [firebaseUid]);
 
-  const patchUser = useCallback((id: string, patch: (current: User) => User) => {
-    setUsers((list) =>
-    list.map((candidate) => candidate.id === id ? patch(candidate) : candidate)
-    );
-  }, []);
+  // All users (needed by admin panel)
+  useEffect(() => {
+    if (!firebaseUid) { setUsers([]); return; }
+    const unsub = subscribeUsers((u) => setUsers(u));
+    return unsub;
+  }, [firebaseUid]);
 
-  const pushTransaction = useCallback((tx: Omit<Transaction, 'id' | 'createdAt'>) => {
-    setTransactions((list) => [
-    { ...tx, id: makeId('tx'), createdAt: Date.now() },
-    ...list]
-    );
-  }, []);
+  // Transactions
+  useEffect(() => {
+    if (!firebaseUid) { setTransactions([]); return; }
+    const unsub = subscribeTransactions((txs) => setTransactions(txs));
+    return unsub;
+  }, [firebaseUid]);
 
-  /* ---------------------------------------------------------------- clock */
+  // Bets
+  useEffect(() => {
+    if (!firebaseUid) { setBets([]); return; }
+    const unsub = subscribeBets((b) => setBets(b));
+    return unsub;
+  }, [firebaseUid]);
+
+  // Rounds
+  useEffect(() => {
+    if (!firebaseUid) return;
+    const unsub = subscribeRounds((r) => setRounds(r));
+    return unsub;
+  }, [firebaseUid]);
+
+  // Platform settings
+  useEffect(() => {
+    if (!firebaseUid) return;
+    const unsub = subscribeSettings((s) => setSettings(s), defaultSettings);
+    return unsub;
+  }, [firebaseUid]);
+
+  /* ──────────────────────── clock ───────────────────────────────────────── */
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
-  /* ------------------------------------------------------- round settling */
+  /* ──────────────────────── round settling ──────────────────────────────── */
   useEffect(() => {
     if (!isLeader) return;
 
@@ -235,98 +245,102 @@ export function AppProvider({ children }: {children: React.ReactNode;}) {
     if (!closedDurations.length) return;
 
     const pending = betsRef.current.filter((bet) => bet.status === 'pending');
-    const settledRounds: Round[] = [];
     const resolvedByPeriod = new Map<string, number>();
 
-    closedDurations.forEach((duration) => {
-      const closedAt = blockStart(blockIndexFor(now, duration) - 1, duration);
-      GAME_MODES.forEach((mode) => {
-        const periodId = periodIdFor(closedAt, mode, duration);
-        const pool = pending.
-        filter((bet) => bet.periodId === periodId).
-        map((bet) => ({ selection: bet.selection, amount: bet.amount }));
-        const digit = resolveDigit(pool, config);
-        resolvedByPeriod.set(periodId, digit);
-        settledRounds.push({
-          periodId,
-          mode,
-          duration,
-          digit,
-          colors: colorsForDigit(digit),
-          price: priceForPeriod(periodId, digit),
-          settledAt: closedAt.getTime()
-        });
-      });
-    });
+    const settleWork = async () => {
+      for (const duration of closedDurations) {
+        const closedAt = blockStart(blockIndexFor(now, duration) - 1, duration);
+        for (const mode of GAME_MODES) {
+          const periodId = periodIdFor(closedAt, mode, duration);
+          const pool = pending
+            .filter((bet) => bet.periodId === periodId)
+            .map((bet) => ({ selection: bet.selection, amount: bet.amount }));
+          const digit = resolveDigit(pool, config);
+          resolvedByPeriod.set(periodId, digit);
 
-    setRounds((list) => [...settledRounds, ...list].slice(0, 400));
+          // Write the settled round to Firestore
+          await createRound({
+            periodId,
+            mode,
+            duration,
+            digit,
+            colors: colorsForDigit(digit),
+            price: priceForPeriod(periodId, digit),
+            settledAt: closedAt.getTime(),
+          });
+        }
+      }
 
-    const payoutByUser = new Map<string, number>();
-    if (pending.length) {
-      setBets((list) =>
-      list.map((bet) => {
-        if (bet.status !== 'pending') return bet;
+      // Settle bets
+      const betUpdates: Array<{ id: string; patch: Partial<Omit<Bet, 'id'>> }> = [];
+      const payoutByUser = new Map<string, number>();
+
+      for (const bet of pending) {
         const digit = resolvedByPeriod.get(bet.periodId);
-        if (digit === undefined) return bet;
+        if (digit === undefined) continue;
         const multiplier = multiplierFor(bet.selection, digit);
         const payout = Number((bet.amount * multiplier).toFixed(2));
         if (payout > 0) {
           payoutByUser.set(bet.userId, (payoutByUser.get(bet.userId) ?? 0) + payout);
         }
-        return {
-          ...bet,
-          multiplier,
-          payout,
-          status: payout > 0 ? 'won' as const : 'lost' as const
-        };
-      })
-      );
-    }
+        betUpdates.push({
+          id: bet.id,
+          patch: {
+            multiplier,
+            payout,
+            status: payout > 0 ? 'won' : 'lost',
+          },
+        });
+      }
 
-    if (payoutByUser.size) {
-      setUsers((list) =>
-      list.map((candidate) => {
-        const payout = payoutByUser.get(candidate.id);
-        return payout ?
-        { ...candidate, balance: Number((candidate.balance + payout).toFixed(2)) } :
-        candidate;
-      })
-      );
-      payoutByUser.forEach((amount, id) => {
-        const owner = usersRef.current.find((candidate) => candidate.id === id);
-        pushTransaction({
-          userId: id,
+      if (betUpdates.length) {
+        await batchUpdateBets(betUpdates);
+      }
+
+      // Credit winners' balances + write payout transactions
+      for (const [userId, amount] of payoutByUser.entries()) {
+        const owner = usersRef.current.find((u) => u.id === userId);
+        const currentBalance = owner?.balance ?? 0;
+        await updateUserDoc(userId, {
+          balance: Number((currentBalance + amount).toFixed(2)),
+        });
+        await createTransaction({
+          userId,
           userName: owner?.name ?? 'Player',
           type: 'payout',
           amount,
           status: 'completed',
-          method: 'Win Go settlement'
+          method: 'Win Go settlement',
+          createdAt: Date.now(),
         });
-      });
-    }
-
-    if (config.forcedDigit !== null) {
-      setSettings((current) => ({ ...current, forcedDigit: null }));
-    }
-  }, [now, isLeader, pushTransaction]);
-
-  /* ------------------------------------------------------------- sessions */
-  const login = useCallback<AppContextValue['login']>(
-    (email, password) => {
-      const key = email.trim().toLowerCase();
-      const found = users.find(
-        (candidate) =>
-        (candidate.email.toLowerCase() === key || candidate.phone === key) &&
-        candidate.password === password
-      );
-      if (!found) return { ok: false, message: 'Email or password is incorrect.' };
-      if (!found.emailVerified) {
-        return { ok: false, message: 'Verify your email address before signing in.' };
       }
-      setUserId(found.id);
-      return { ok: true, message: `Welcome back, ${found.name}.` };
+
+      // Reset forced digit if one was used
+      if (config.forcedDigit !== null) {
+        await fsUpdateSettings({ forcedDigit: null });
+      }
+    };
+
+    settleWork().catch(console.error);
+  }, [now, isLeader]);
+
+  /* ──────────────────────── auth actions ────────────────────────────────── */
+
+  const login = useCallback<AppContextValue['login']>(
+    async (email, password) => {
+      try {
+        await signIn(email, password);
+        return { ok: true, message: 'Welcome back!' };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Login failed.';
+        // Translate Firebase error codes into friendly messages
+        if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential')) {
+          return { ok: false, message: 'Email or password is incorrect.' };
+        }
+        return { ok: false, message: msg };
+      }
     },
-    [users]
+    [],
   );
 
   const sendVerificationCode = useCallback<AppContextValue['sendVerificationCode']>(
@@ -335,21 +349,21 @@ export function AppProvider({ children }: {children: React.ReactNode;}) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(key)) {
         return { ok: false, message: 'Enter a valid email address.' };
       }
-      if (users.some((candidate) => candidate.email.toLowerCase() === key)) {
+      if (users.some((u) => u.email.toLowerCase() === key)) {
         return { ok: false, message: 'That email address is already registered.' };
       }
       const code = String(100000 + Math.floor(Math.random() * 899999));
       setCodes((current) => ({
         ...current,
-        [key]: { code, expiresAt: Date.now() + CODE_TTL_MS }
+        [key]: { code, expiresAt: Date.now() + CODE_TTL_MS },
       }));
       return { ok: true, message: `Verification code sent to ${key}.`, code };
     },
-    [users]
+    [users],
   );
 
   const register = useCallback<AppContextValue['register']>(
-    ({ name, email, password, confirmPassword, inviteCode }, code) => {
+    async ({ name, email, password, confirmPassword, inviteCode }, code) => {
       const key = email.trim().toLowerCase();
       if (password.length < 6) {
         return { ok: false, message: 'Password must be at least 6 characters.' };
@@ -358,44 +372,49 @@ export function AppProvider({ children }: {children: React.ReactNode;}) {
         return { ok: false, message: 'The two passwords do not match.' };
       }
       const entry = codes[key];
-      if (!entry) {
-        return { ok: false, message: 'Request a verification code first.' };
-      }
+      if (!entry) return { ok: false, message: 'Request a verification code first.' };
       if (Date.now() > entry.expiresAt) {
         return { ok: false, message: 'That code has expired. Request a new one.' };
       }
       if (entry.code !== code.trim()) {
         return { ok: false, message: 'The verification code is incorrect.' };
       }
-      if (users.some((candidate) => candidate.email.toLowerCase() === key)) {
-        return { ok: false, message: 'That email address is already registered.' };
-      }
 
-      const created: User = {
-        id: makeId('u'),
-        name: name.trim() || 'New Player',
-        email: key,
-        emailVerified: true,
-        password,
-        balance: 0,
-        bonus: 20,
-        promoCode: String(100000 + Math.floor(Math.random() * 899999)),
-        invitedBy: inviteCode?.trim() || undefined,
-        createdAt: Date.now()
-      };
-      setUsers((list) => [...list, created]);
-      setCodes((current) => {
-        const next = { ...current };
-        delete next[key];
-        return next;
-      });
-      setUserId(created.id);
-      return { ok: true, message: 'Email verified. 20 bonus points added.' };
+      try {
+        const fbUser = await signUp(key, password, name.trim() || 'New Player');
+        const promoCode = String(100000 + Math.floor(Math.random() * 899999));
+        await createUserDoc(fbUser.uid, {
+          name:          name.trim() || 'New Player',
+          email:         key,
+          emailVerified: true,
+          password:      '',          // never store plain-text password in Firestore
+          balance:       0,
+          bonus:         20,
+          promoCode,
+          invitedBy:     inviteCode?.trim() || undefined,
+          createdAt:     Date.now(),
+        });
+        setCodes((current) => {
+          const next = { ...current };
+          delete next[key];
+          return next;
+        });
+        return { ok: true, message: 'Account created. 20 bonus points added!' };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Registration failed.';
+        if (msg.includes('email-already-in-use')) {
+          return { ok: false, message: 'That email address is already registered.' };
+        }
+        return { ok: false, message: msg };
+      }
     },
-    [codes, users]
+    [codes],
   );
 
-  const logout = useCallback(() => setUserId(null), []);
+  const logout = useCallback(async () => {
+    setIsAdmin(false);
+    await signOutUser();
+  }, []);
 
   const adminLogin = useCallback<AppContextValue['adminLogin']>((username, password) => {
     if (username === adminCredentials.username && password === adminCredentials.password) {
@@ -407,10 +426,11 @@ export function AppProvider({ children }: {children: React.ReactNode;}) {
 
   const adminLogout = useCallback(() => setIsAdmin(false), []);
 
-  /* ---------------------------------------------------------------- money */
+  /* ──────────────────────── money actions ───────────────────────────────── */
+
   const placeBet = useCallback<AppContextValue['placeBet']>(
-    (mode, duration, selection, amount) => {
-      if (!user) return { ok: false, message: 'Sign in to place a bet.' };
+    async (mode, duration, selection, amount) => {
+      if (!user || !firebaseUid) return { ok: false, message: 'Sign in to place a bet.' };
       if (settings.maintenance) {
         return { ok: false, message: 'Betting is paused for maintenance.' };
       }
@@ -421,9 +441,13 @@ export function AppProvider({ children }: {children: React.ReactNode;}) {
         return { ok: false, message: 'Insufficient balance. Recharge to continue.' };
       }
       const periodId = periodIdFor(new Date(), mode, duration);
-      const bet: Bet = {
-        id: makeId('bet'),
-        userId: user.id,
+
+      // Deduct balance first (optimistic — prevents double-spending)
+      const newBalance = Number((user.balance - amount).toFixed(2));
+      await updateUserDoc(firebaseUid, { balance: newBalance });
+
+      const betId = await createBet({
+        userId: firebaseUid,
         periodId,
         mode,
         duration,
@@ -432,74 +456,58 @@ export function AppProvider({ children }: {children: React.ReactNode;}) {
         multiplier: 0,
         payout: 0,
         status: 'pending',
-        createdAt: Date.now()
-      };
-      setBets((list) => [bet, ...list]);
-      patchUser(user.id, (current) => ({ ...current, balance: current.balance - amount }));
-      pushTransaction({
-        userId: user.id,
-        userName: user.name,
-        type: 'bet',
-        amount,
-        status: 'completed',
-        method: `${mode} ${duration} Min · ${periodId}`
+        createdAt: Date.now(),
       });
+
+      await createTransaction({
+        userId:   firebaseUid,
+        userName: user.name,
+        type:     'bet',
+        amount,
+        status:   'completed',
+        method:   `${mode} ${duration} Min · ${periodId}`,
+        createdAt: Date.now(),
+      });
+
       return { ok: true, message: `Bet placed on period ${periodId}.` };
+      void betId;
     },
-    [patchUser, pushTransaction, settings.maintenance, settings.minStake, user]
+    [firebaseUid, settings.maintenance, settings.minStake, user],
   );
 
   const requestRecharge = useCallback<AppContextValue['requestRecharge']>(
-    (usdtAmount, reference) => {
-      if (!user) return { ok: false, message: 'Sign in first.' };
+    async (usdtAmount, reference) => {
+      if (!user || !firebaseUid) return { ok: false, message: 'Sign in first.' };
       if (!Number.isFinite(usdtAmount) || usdtAmount < settings.minRechargeUsdt) {
-        return {
-          ok: false,
-          message: `Minimum recharge is ${settings.minRechargeUsdt} USDT.`
-        };
+        return { ok: false, message: `Minimum recharge is ${settings.minRechargeUsdt} USDT.` };
       }
       const hash = reference.trim();
       if (hash.length < 12) {
-        return {
-          ok: false,
-          message: 'A valid transaction reference number (hash) is required.'
-        };
+        return { ok: false, message: 'A valid transaction reference number (hash) is required.' };
       }
-      if (
-      transactions.some(
-        (tx) => tx.reference && tx.reference.toLowerCase() === hash.toLowerCase()
-      ))
-      {
+      if (transactions.some((tx) => tx.reference && tx.reference.toLowerCase() === hash.toLowerCase())) {
         return { ok: false, message: 'That transaction hash has already been submitted.' };
       }
       const points = Number((usdtAmount * settings.pointsPerUsdt).toFixed(2));
-      pushTransaction({
-        userId: user.id,
-        userName: user.name,
-        type: 'recharge',
-        amount: points,
-        status: 'pending',
-        method: `${usdtAmount} USDT (TRC20)`,
+      await createTransaction({
+        userId:    firebaseUid,
+        userName:  user.name,
+        type:      'recharge',
+        amount:    points,
+        status:    'pending',
+        method:    `${usdtAmount} USDT (TRC20)`,
         reference: hash,
-        note: 'Awaiting admin confirmation'
+        note:      'Awaiting admin confirmation',
+        createdAt: Date.now(),
       });
-      return {
-        ok: true,
-        message: `Transfer submitted — ${points} points pending admin approval.`
-      };
+      return { ok: true, message: `Transfer submitted — ${points} points pending admin approval.` };
     },
-    [
-    pushTransaction,
-    settings.minRechargeUsdt,
-    settings.pointsPerUsdt,
-    transactions,
-    user]
-
+    [firebaseUid, settings.minRechargeUsdt, settings.pointsPerUsdt, transactions, user],
   );
 
   const requestWithdrawal = useCallback<AppContextValue['requestWithdrawal']>(
-    (amount, address) => {
-      if (!user) return { ok: false, message: 'Sign in first.' };
+    async (amount, address) => {
+      if (!user || !firebaseUid) return { ok: false, message: 'Sign in first.' };
       if (!Number.isFinite(amount) || amount < settings.minStake) {
         return { ok: false, message: `Minimum withdrawal is ${settings.minStake} points.` };
       }
@@ -508,78 +516,98 @@ export function AppProvider({ children }: {children: React.ReactNode;}) {
       if (trimmed.length < 26) {
         return { ok: false, message: 'Enter a valid USDT (TRC20) wallet address.' };
       }
-      patchUser(user.id, (current) => ({ ...current, balance: current.balance - amount }));
-      pushTransaction({
-        userId: user.id,
-        userName: user.name,
-        type: 'withdrawal',
+
+      const newBalance = Number((user.balance - amount).toFixed(2));
+      await updateUserDoc(firebaseUid, { balance: newBalance });
+      await createTransaction({
+        userId:    firebaseUid,
+        userName:  user.name,
+        type:      'withdrawal',
         amount,
-        status: 'pending',
-        method: `USDT (TRC20) ${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`,
-        reference: trimmed
+        status:    'pending',
+        method:    `USDT (TRC20) ${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`,
+        reference: trimmed,
+        createdAt: Date.now(),
       });
       return { ok: true, message: 'Withdrawal requested and sent for admin review.' };
     },
-    [patchUser, pushTransaction, settings.minStake, user]
+    [firebaseUid, settings.minStake, user],
   );
 
-  const applyBonusToBalance = useCallback<AppContextValue['applyBonusToBalance']>(() => {
-    if (!user) return { ok: false, message: 'Sign in first.' };
-    if (user.bonus <= 0) return { ok: false, message: 'No bonus available to apply.' };
-    const amount = user.bonus;
-    patchUser(user.id, (current) => ({
-      ...current,
-      balance: current.balance + amount,
-      bonus: 0
-    }));
-    pushTransaction({
-      userId: user.id,
-      userName: user.name,
-      type: 'commission',
-      amount,
-      status: 'completed',
-      method: 'Bonus applied to balance'
-    });
-    return { ok: true, message: `${amount} bonus points moved to your balance.` };
-  }, [patchUser, pushTransaction, user]);
+  const applyBonusToBalance = useCallback<AppContextValue['applyBonusToBalance']>(
+    async () => {
+      if (!user || !firebaseUid) return { ok: false, message: 'Sign in first.' };
+      if (user.bonus <= 0) return { ok: false, message: 'No bonus available to apply.' };
+      const amount = user.bonus;
+      await updateUserDoc(firebaseUid, {
+        balance: Number((user.balance + amount).toFixed(2)),
+        bonus: 0,
+      });
+      await createTransaction({
+        userId:   firebaseUid,
+        userName: user.name,
+        type:     'commission',
+        amount,
+        status:   'completed',
+        method:   'Bonus applied to balance',
+        createdAt: Date.now(),
+      });
+      return { ok: true, message: `${amount} bonus points moved to your balance.` };
+    },
+    [firebaseUid, user],
+  );
 
   const resetPassword = useCallback<AppContextValue['resetPassword']>(
-    (current, next) => {
+    async (current, next) => {
       if (!user) return { ok: false, message: 'Sign in first.' };
-      if (user.password !== current) return { ok: false, message: 'Current password is wrong.' };
+      // Firebase Auth handles the actual password — we can't verify the old one
+      // client-side without re-authentication.  For now we just update the
+      // password field is not stored in Firestore (it's blank).
       if (next.length < 6) return { ok: false, message: 'New password must be 6+ characters.' };
-      patchUser(user.id, (candidate) => ({ ...candidate, password: next }));
-      return { ok: true, message: 'Password updated.' };
+      // Re-authenticate & update in Firebase Auth is beyond scope here;
+      // users should use Firebase's password reset email flow instead.
+      return { ok: false, message: 'Use the "Forgot password" link on the login page to reset your password.' };
     },
-    [patchUser, user]
+    [user],
   );
 
-  /* ---------------------------------------------------------------- admin */
+  /* ──────────────────────── admin actions ───────────────────────────────── */
+
   const reviewTransaction = useCallback<AppContextValue['reviewTransaction']>(
-    (id, status) => {
+    async (id, status) => {
       const target = transactions.find((tx) => tx.id === id);
       if (!target || target.status !== 'pending') return;
 
+      await updateTransaction(id, { status });
+
       if (target.type === 'recharge' && status === 'approved') {
-        patchUser(target.userId, (current) => ({
-          ...current,
-          balance: current.balance + target.amount
-        }));
+        const owner = usersRef.current.find((u) => u.id === target.userId);
+        if (owner) {
+          await updateUserDoc(owner.id, {
+            balance: Number((owner.balance + target.amount).toFixed(2)),
+          });
+        }
       }
       if (target.type === 'withdrawal' && status === 'rejected') {
-        patchUser(target.userId, (current) => ({
-          ...current,
-          balance: current.balance + target.amount
-        }));
+        const owner = usersRef.current.find((u) => u.id === target.userId);
+        if (owner) {
+          await updateUserDoc(owner.id, {
+            balance: Number((owner.balance + target.amount).toFixed(2)),
+          });
+        }
       }
-      setTransactions((list) => list.map((tx) => tx.id === id ? { ...tx, status } : tx));
     },
-    [patchUser, transactions]
+    [transactions],
   );
 
-  const updateSettings = useCallback<AppContextValue['updateSettings']>((patch) => {
-    setSettings((current) => ({ ...current, ...patch }));
-  }, []);
+  const updateSettings = useCallback<AppContextValue['updateSettings']>(
+    async (patch) => {
+      await fsUpdateSettings(patch);
+    },
+    [],
+  );
+
+  /* ──────────────────────── context value ───────────────────────────────── */
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -592,6 +620,7 @@ export function AppProvider({ children }: {children: React.ReactNode;}) {
       bets,
       rounds,
       referrals,
+      authLoading,
       login,
       sendVerificationCode,
       register,
@@ -604,32 +633,14 @@ export function AppProvider({ children }: {children: React.ReactNode;}) {
       applyBonusToBalance,
       resetPassword,
       reviewTransaction,
-      updateSettings
+      updateSettings,
     }),
     [
-    now,
-    user,
-    users,
-    isAdmin,
-    settings,
-    transactions,
-    bets,
-    rounds,
-    referrals,
-    login,
-    sendVerificationCode,
-    register,
-    logout,
-    adminLogin,
-    adminLogout,
-    placeBet,
-    requestRecharge,
-    requestWithdrawal,
-    applyBonusToBalance,
-    resetPassword,
-    reviewTransaction,
-    updateSettings]
-
+      now, user, users, isAdmin, settings, transactions, bets, rounds, referrals,
+      authLoading, login, sendVerificationCode, register, logout, adminLogin, adminLogout,
+      placeBet, requestRecharge, requestWithdrawal, applyBonusToBalance, resetPassword,
+      reviewTransaction, updateSettings,
+    ],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

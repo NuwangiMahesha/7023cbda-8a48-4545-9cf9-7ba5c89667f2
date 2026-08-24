@@ -29,10 +29,10 @@ export function Promotion() {
     }
   }
 
-  function apply() {
-    const result = applyBonusToBalance();
-    if (result.ok) toast.success(result.message);else
-    toast.error(result.message);
+  async function apply() {
+    const result = await applyBonusToBalance();
+    if (result.ok) toast.success(result.message);
+    else toast.error(result.message);
   }
 
   return (

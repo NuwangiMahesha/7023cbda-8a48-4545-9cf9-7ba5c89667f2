@@ -32,8 +32,8 @@ export function AdminRequests() {
     [transactions, tab]
   );
 
-  function review(id: string, status: 'approved' | 'rejected') {
-    reviewTransaction(id, status);
+  async function review(id: string, status: 'approved' | 'rejected') {
+    await reviewTransaction(id, status);
     toast.success(`Request ${status}.`);
   }
 

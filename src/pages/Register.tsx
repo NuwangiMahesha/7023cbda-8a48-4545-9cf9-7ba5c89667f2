@@ -62,9 +62,9 @@ export function Register() {
     );
   }
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const result = register(form, code);
+    const result = await register(form, code);
     if (result.ok) {
       toast.success(result.message);
       navigate('/menu');

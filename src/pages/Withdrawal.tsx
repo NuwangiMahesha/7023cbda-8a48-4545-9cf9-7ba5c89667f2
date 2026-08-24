@@ -22,9 +22,9 @@ export function Withdrawal() {
   const value = Number(amount);
   const usdt = Number.isFinite(value) ? value / settings.pointsPerUsdt : 0;
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const result = requestWithdrawal(value, address);
+    const result = await requestWithdrawal(value, address);
     if (result.ok) {
       toast.success(result.message);
       setAmount('');

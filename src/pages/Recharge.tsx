@@ -26,7 +26,7 @@ export function Recharge() {
     }
   }
 
-  function submit() {
+  async function submit() {
     if (!Number.isFinite(usdtValue)) {
       toast.error('Enter a valid USDT amount.');
       return;
@@ -36,16 +36,14 @@ export function Recharge() {
       return;
     }
     setSubmitting(true);
-    window.setTimeout(() => {
-      const result = requestRecharge(usdtValue, reference);
-      setSubmitting(false);
-      if (result.ok) {
-        toast.success(result.message);
-        setReference('');
-      } else {
-        toast.error(result.message);
-      }
-    }, 400);
+    const result = await requestRecharge(usdtValue, reference);
+    setSubmitting(false);
+    if (result.ok) {
+      toast.success(result.message);
+      setReference('');
+    } else {
+      toast.error(result.message);
+    }
   }
 
   return (

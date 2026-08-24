@@ -11,22 +11,22 @@ export function AdminSettings() {
   const [minRecharge, setMinRecharge] = useState(String(settings.minRechargeUsdt));
   const [rate, setRate] = useState(String(settings.pointsPerUsdt));
 
-  function save(event: React.FormEvent) {
+  async function save(event: React.FormEvent) {
     event.preventDefault();
     const stake = Number(minStake);
     const recharge = Number(minRecharge);
     const conversion = Number(rate);
     if (
-    [stake, recharge, conversion].some((value) => !Number.isFinite(value) || value <= 0))
-    {
+      [stake, recharge, conversion].some((value) => !Number.isFinite(value) || value <= 0)
+    ) {
       toast.error('Stake, minimum recharge and conversion rate must be positive numbers.');
       return;
     }
-    updateSettings({
+    await updateSettings({
       usdtAddress: address.trim(),
       minStake: stake,
       minRechargeUsdt: recharge,
-      pointsPerUsdt: conversion
+      pointsPerUsdt: conversion,
     });
     toast.success('Platform settings saved.');
   }

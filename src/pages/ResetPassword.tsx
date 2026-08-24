@@ -11,13 +11,13 @@ export function ResetPassword() {
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (next !== confirm) {
       toast.error('The two new passwords do not match.');
       return;
     }
-    const result = resetPassword(current, next);
+    const result = await resetPassword(current, next);
     if (result.ok) {
       toast.success(result.message);
       setCurrent('');

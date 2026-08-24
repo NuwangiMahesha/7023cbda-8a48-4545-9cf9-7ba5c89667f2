@@ -28,8 +28,8 @@ export function Wallet() {
     (tx) => tx.userId === user?.id && tx.status === 'pending'
   ).length;
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     toast.success('Signed out.');
     navigate('/login');
   }
