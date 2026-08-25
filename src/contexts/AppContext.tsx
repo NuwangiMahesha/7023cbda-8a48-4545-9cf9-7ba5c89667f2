@@ -45,6 +45,7 @@ import {
   createRound,
   createTransaction,
   createUserDoc,
+  getUserDoc,
   subscribeBets,
   subscribeOwnUser,
   subscribeRounds,
@@ -581,17 +582,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await updateTransaction(id, { status });
 
       if (target.type === 'recharge' && status === 'approved') {
-        const owner = usersRef.current.find((u) => u.id === target.userId);
+        const owner =
+          usersRef.current.find((u) => u.id === target.userId) ||
+          (await getUserDoc(target.userId));
         if (owner) {
-          await updateUserDoc(owner.id, {
+          await updateUserDoc(target.userId, {
             balance: Number((owner.balance + target.amount).toFixed(2)),
           });
         }
       }
       if (target.type === 'withdrawal' && status === 'rejected') {
-        const owner = usersRef.current.find((u) => u.id === target.userId);
+        const owner =
+          usersRef.current.find((u) => u.id === target.userId) ||
+          (await getUserDoc(target.userId));
         if (owner) {
-          await updateUserDoc(owner.id, {
+          await updateUserDoc(target.userId, {
             balance: Number((owner.balance + target.amount).toFixed(2)),
           });
         }
