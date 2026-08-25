@@ -384,7 +384,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           balance: 0,
           bonus: 20,
           promoCode,
-          invitedBy: inviteCode?.trim() || undefined,
+          invitedBy: inviteCode?.trim() || null,
           createdAt: Date.now(),
         });
         return {

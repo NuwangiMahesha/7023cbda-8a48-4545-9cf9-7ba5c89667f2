@@ -35,6 +35,17 @@ import type {
   User,
 } from '../types';
 
+/** Helper to remove undefined fields which Firestore rejects */
+function sanitize<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+}
+
 /* ─────────────────────────────── collection refs ─────────────────────────── */
 
 const usersCol        = () => collection(db, 'users');
@@ -79,8 +90,6 @@ export function subscribeUserBets(
   userId: string,
   onChange: (bets: Bet[]) => void,
 ): Unsubscribe {
-  // We query all bets and filter client-side to avoid needing a composite index
-  // on first run.  For large scale, add a userId index in Firestore console.
   const q = query(betsCol(), orderBy('createdAt', 'desc'), limit(500));
   return onSnapshot(q, (snap) => {
     const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Bet));
@@ -117,8 +126,7 @@ export function subscribeSettings(
     if (snap.exists()) {
       onChange(snap.data() as PlatformSettings);
     } else {
-      // First run — write defaults
-      setDoc(settingsDoc(), defaultSettings).catch(console.error);
+      setDoc(settingsDoc(), sanitize(defaultSettings)).catch(console.error);
       onChange(defaultSettings);
     }
   });
@@ -128,7 +136,7 @@ export function subscribeSettings(
 
 /** Write a new user profile document (called on registration). */
 export async function createUserDoc(uid: string, data: Omit<User, 'id'>): Promise<void> {
-  await setDoc(doc(db, 'users', uid), data);
+  await setDoc(doc(db, 'users', uid), sanitize(data));
 }
 
 /** Read a user profile once (used on login to check emailVerified flag). */
@@ -142,7 +150,7 @@ export async function updateUserDoc(
   uid: string,
   patch: Partial<Omit<User, 'id'>>,
 ): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), patch as Record<string, unknown>);
+  await updateDoc(doc(db, 'users', uid), sanitize(patch));
 }
 
 /* ─────────────────────────────── transactions ────────────────────────────── */
@@ -152,7 +160,7 @@ export async function createTransaction(
   data: Omit<Transaction, 'id'>,
 ): Promise<string> {
   const ref = await addDoc(transactionsCol(), {
-    ...data,
+    ...sanitize(data),
     _ts: serverTimestamp(),
   });
   return ref.id;
@@ -163,14 +171,14 @@ export async function updateTransaction(
   id: string,
   patch: Partial<Omit<Transaction, 'id'>>,
 ): Promise<void> {
-  await updateDoc(doc(db, 'transactions', id), patch as Record<string, unknown>);
+  await updateDoc(doc(db, 'transactions', id), sanitize(patch));
 }
 
 /* ─────────────────────────────── bets ────────────────────────────────────── */
 
 /** Add a new bet document and return its auto-generated id. */
 export async function createBet(data: Omit<Bet, 'id'>): Promise<string> {
-  const ref = await addDoc(betsCol(), data);
+  const ref = await addDoc(betsCol(), sanitize(data));
   return ref.id;
 }
 
@@ -183,7 +191,7 @@ export async function batchUpdateBets(
 ): Promise<void> {
   const batch = writeBatch(db);
   for (const { id, patch } of updates) {
-    batch.update(doc(db, 'bets', id), patch as Record<string, unknown>);
+    batch.update(doc(db, 'bets', id), sanitize(patch));
   }
   await batch.commit();
 }
@@ -195,7 +203,7 @@ export async function batchUpdateBets(
  * re-settling the same period is a no-op because doc id is the same).
  */
 export async function createRound(data: Round): Promise<void> {
-  await setDoc(doc(db, 'rounds', data.periodId), data);
+  await setDoc(doc(db, 'rounds', data.periodId), sanitize(data));
 }
 
 /* ─────────────────────────────── settings ────────────────────────────────── */
@@ -204,5 +212,5 @@ export async function createRound(data: Round): Promise<void> {
 export async function updateSettings(
   patch: Partial<PlatformSettings>,
 ): Promise<void> {
-  await updateDoc(settingsDoc(), patch as Record<string, unknown>);
+  await updateDoc(settingsDoc(), sanitize(patch));
 }
