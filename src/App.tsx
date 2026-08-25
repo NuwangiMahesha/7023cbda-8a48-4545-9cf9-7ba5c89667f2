@@ -29,8 +29,15 @@ import { AdminGameControl } from './pages/admin/AdminGameControl';
 import { AdminSettings } from './pages/admin/AdminSettings';
 
 function RequirePlayer() {
-  const { user } = useApp();
+  const { user, authLoading } = useApp();
   const location = useLocation();
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-sunken">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <Outlet />;
 }
@@ -42,7 +49,14 @@ function RequireAdmin() {
 }
 
 function GuestOnly() {
-  const { user } = useApp();
+  const { user, authLoading } = useApp();
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-sunken">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+      </div>
+    );
+  }
   if (user) return <Navigate to="/win" replace />;
   return <Outlet />;
 }
