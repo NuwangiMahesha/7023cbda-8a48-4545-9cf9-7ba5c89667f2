@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { MailCheckIcon, RefreshCwIcon } from 'lucide-react';
+import { MailCheckIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Logo } from '../components/layout/Logo';
 import { Button } from '../components/ui/Button';

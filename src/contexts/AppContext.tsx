@@ -108,12 +108,6 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-const CODE_TTL_MS = 10 * 60 * 1000;
-
-function makeId(prefix: string): string {
-  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
 function seedRounds(): Round[] {
   const out: Round[] = [];
   const base = Date.now();
@@ -160,9 +154,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [rounds, setRounds]           = useState<Round[]>(seedRounds());
   const [referrals]                   = useState<Referral[]>(seedReferrals);
   const [settings, setSettings]       = useState<PlatformSettings>(defaultSettings);
-
-  /* ── pending verification codes (client-side only, no server) ── */
-  const [codes, setCodes] = useState<Record<string, { code: string; expiresAt: number }>>({});
 
   /* ── mutable refs for use inside setInterval callbacks ── */
   const betsRef     = useRef<Bet[]>([]);

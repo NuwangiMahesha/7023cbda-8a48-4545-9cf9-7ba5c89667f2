@@ -36,8 +36,8 @@ import type {
 } from '../types';
 
 /** Helper to remove undefined fields which Firestore rejects */
-function sanitize<T extends Record<string, any>>(obj: T): Record<string, any> {
-  const cleaned: Record<string, any> = {};
+function sanitize<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     if (value !== undefined) {
       cleaned[key] = value;
