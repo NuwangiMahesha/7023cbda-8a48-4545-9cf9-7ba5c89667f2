@@ -31,8 +31,14 @@ import {
   priceForPeriod,
   resolveDigit,
 } from '../utils/game';
-import { useLeaderTab } from '../hooks/useLeaderTab';
-import { onAuthChange, signIn, signOutUser, signUp } from '../services/auth';
+import {
+  checkEmailVerified,
+  onAuthChange,
+  resendVerificationEmail,
+  signIn,
+  signOutUser,
+  signUp,
+} from '../services/auth';
 import {
   batchUpdateBets,
   createBet,
@@ -77,8 +83,9 @@ interface AppContextValue {
   referrals: Referral[];
   authLoading: boolean;
   login: (email: string, password: string) => Promise<ActionResult>;
-  sendVerificationCode: (email: string) => ActionResult & { code?: string };
-  register: (input: RegisterInput, code: string) => Promise<ActionResult>;
+  register: (input: RegisterInput) => Promise<ActionResult>;
+  resendVerification: () => Promise<ActionResult>;
+  checkVerification: () => Promise<boolean>;
   logout: () => Promise<void>;
   adminLogin: (username: string, password: string) => ActionResult;
   adminLogout: () => void;
@@ -329,12 +336,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback<AppContextValue['login']>(
     async (email, password) => {
       try {
-        await signIn(email, password);
+        const fbUser = await signIn(email, password);
+        await fbUser.reload();
+        if (!fbUser.emailVerified) {
+          return {
+            ok: false,
+            message: 'Please check your email inbox and click the verification link before logging in.',
+          };
+        }
         return { ok: true, message: 'Welcome back!' };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Login failed.';
-        // Translate Firebase error codes into friendly messages
-        if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential')) {
+        if (
+          msg.includes('user-not-found') ||
+          msg.includes('wrong-password') ||
+          msg.includes('invalid-credential')
+        ) {
           return { ok: false, message: 'Email or password is incorrect.' };
         }
         return { ok: false, message: msg };
@@ -343,63 +360,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const sendVerificationCode = useCallback<AppContextValue['sendVerificationCode']>(
-    (email) => {
+  const register = useCallback<AppContextValue['register']>(
+    async ({ name, email, password, confirmPassword, inviteCode }) => {
       const key = email.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(key)) {
         return { ok: false, message: 'Enter a valid email address.' };
       }
-      if (users.some((u) => u.email.toLowerCase() === key)) {
-        return { ok: false, message: 'That email address is already registered.' };
-      }
-      const code = String(100000 + Math.floor(Math.random() * 899999));
-      setCodes((current) => ({
-        ...current,
-        [key]: { code, expiresAt: Date.now() + CODE_TTL_MS },
-      }));
-      return { ok: true, message: `Verification code sent to ${key}.`, code };
-    },
-    [users],
-  );
-
-  const register = useCallback<AppContextValue['register']>(
-    async ({ name, email, password, confirmPassword, inviteCode }, code) => {
-      const key = email.trim().toLowerCase();
       if (password.length < 6) {
         return { ok: false, message: 'Password must be at least 6 characters.' };
       }
       if (password !== confirmPassword) {
         return { ok: false, message: 'The two passwords do not match.' };
       }
-      const entry = codes[key];
-      if (!entry) return { ok: false, message: 'Request a verification code first.' };
-      if (Date.now() > entry.expiresAt) {
-        return { ok: false, message: 'That code has expired. Request a new one.' };
-      }
-      if (entry.code !== code.trim()) {
-        return { ok: false, message: 'The verification code is incorrect.' };
-      }
 
       try {
         const fbUser = await signUp(key, password, name.trim() || 'New Player');
         const promoCode = String(100000 + Math.floor(Math.random() * 899999));
         await createUserDoc(fbUser.uid, {
-          name:          name.trim() || 'New Player',
-          email:         key,
-          emailVerified: true,
-          password:      '',          // never store plain-text password in Firestore
-          balance:       0,
-          bonus:         20,
+          name: name.trim() || 'New Player',
+          email: key,
+          emailVerified: false,
+          password: '',
+          balance: 0,
+          bonus: 20,
           promoCode,
-          invitedBy:     inviteCode?.trim() || undefined,
-          createdAt:     Date.now(),
+          invitedBy: inviteCode?.trim() || undefined,
+          createdAt: Date.now(),
         });
-        setCodes((current) => {
-          const next = { ...current };
-          delete next[key];
-          return next;
-        });
-        return { ok: true, message: 'Account created. 20 bonus points added!' };
+        return {
+          ok: true,
+          message: 'Verification link sent to your email! Please check your inbox.',
+        };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Registration failed.';
         if (msg.includes('email-already-in-use')) {
@@ -408,8 +399,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, message: msg };
       }
     },
-    [codes],
+    [],
   );
+
+  const resendVerification = useCallback(async () => {
+    try {
+      await resendVerificationEmail();
+      return { ok: true, message: 'Verification email resent! Please check your inbox.' };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to resend verification email.';
+      return { ok: false, message: msg };
+    }
+  }, []);
+
+  const checkVerification = useCallback(async () => {
+    const verified = await checkEmailVerified();
+    if (verified && firebaseUid) {
+      await updateUserDoc(firebaseUid, { emailVerified: true });
+    }
+    return verified;
+  }, [firebaseUid]);
 
   const logout = useCallback(async () => {
     setIsAdmin(false);
@@ -622,8 +631,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       referrals,
       authLoading,
       login,
-      sendVerificationCode,
       register,
+      resendVerification,
+      checkVerification,
       logout,
       adminLogin,
       adminLogout,
@@ -636,10 +646,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
     }),
     [
-      now, user, users, isAdmin, settings, transactions, bets, rounds, referrals,
-      authLoading, login, sendVerificationCode, register, logout, adminLogin, adminLogout,
-      placeBet, requestRecharge, requestWithdrawal, applyBonusToBalance, resetPassword,
-      reviewTransaction, updateSettings,
+      now,
+      user,
+      users,
+      isAdmin,
+      settings,
+      transactions,
+      bets,
+      rounds,
+      referrals,
+      authLoading,
+      login,
+      register,
+      resendVerification,
+      checkVerification,
+      logout,
+      adminLogin,
+      adminLogout,
+      placeBet,
+      requestRecharge,
+      requestWithdrawal,
+      applyBonusToBalance,
+      resetPassword,
+      reviewTransaction,
+      updateSettings,
     ],
   );
 
