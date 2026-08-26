@@ -1,8 +1,7 @@
 import React from 'react';
-import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Gauge as GaugeIcon,
-  Gamepad2 as Gamepad2Icon,
   LogOutIcon,
   ScrollTextIcon,
   SettingsIcon,
@@ -46,14 +45,6 @@ export function AdminLayout() {
               {label}
             </NavLink>
           ))}
-          
-          <Link
-            to="/win"
-            className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-brand-600 hover:bg-brand-50 mt-2 transition-colors duration-150 ease-smooth"
-          >
-            <Gamepad2Icon className="h-4 w-4 text-brand-500" aria-hidden="true" />
-            Gaming Dashboard
-          </Link>
         </nav>
         <button
           type="button"
@@ -87,12 +78,6 @@ export function AdminLayout() {
               {label}
             </NavLink>
           ))}
-          <Link
-            to="/win"
-            className="shrink-0 rounded-lg px-3 py-2 text-[13px] font-semibold text-brand-600 bg-brand-50"
-          >
-            🎮 Gaming App
-          </Link>
         </nav>
         <main className="min-w-0 flex-1 p-4 md:p-8">
           <Outlet />
