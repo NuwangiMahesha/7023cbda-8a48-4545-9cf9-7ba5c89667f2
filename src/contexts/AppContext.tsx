@@ -32,9 +32,11 @@ import {
   resolveDigit,
 } from '../utils/game';
 import {
+  changePassword,
   checkEmailVerified,
   onAuthChange,
   resendVerificationEmail,
+  sendPasswordReset,
   signIn,
   signOutUser,
   signUp,
@@ -101,6 +103,7 @@ interface AppContextValue {
   requestWithdrawal: (amount: number, address: string) => Promise<ActionResult>;
   applyBonusToBalance: () => Promise<ActionResult>;
   resetPassword: (current: string, next: string) => Promise<ActionResult>;
+  sendPasswordResetEmail: (email: string) => Promise<ActionResult>;
   reviewTransaction: (
     id: string,
     status: Extract<TransactionStatus, 'approved' | 'rejected'>,
@@ -624,16 +627,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const resetPassword = useCallback<AppContextValue['resetPassword']>(
     async (current, next) => {
       if (!user) return { ok: false, message: 'Sign in first.' };
-      // Firebase Auth handles the actual password — we can't verify the old one
-      // client-side without re-authentication.  For now we just update the
-      // password field is not stored in Firestore (it's blank).
-      if (next.length < 6) return { ok: false, message: 'New password must be 6+ characters.' };
-      // Re-authenticate & update in Firebase Auth is beyond scope here;
-      // users should use Firebase's password reset email flow instead.
-      return { ok: false, message: 'Use the "Forgot password" link on the login page to reset your password.' };
+      if (next.length < 6) return { ok: false, message: 'New password must be at least 6 characters.' };
+      try {
+        await changePassword(current, next);
+        return { ok: true, message: 'Password updated successfully!' };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to update password.';
+        if (
+          msg.includes('wrong-password') ||
+          msg.includes('invalid-credential') ||
+          msg.includes('invalid-password')
+        ) {
+          return { ok: false, message: 'Current password is incorrect.' };
+        }
+        return { ok: false, message: msg };
+      }
     },
     [user],
   );
+
+  const sendPasswordResetEmail = useCallback(async (email: string) => {
+    const key = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(key)) {
+      return { ok: false, message: 'Enter a valid email address.' };
+    }
+    try {
+      await sendPasswordReset(key);
+      return {
+        ok: true,
+        message: `Password reset link sent to ${key}! Check your email inbox.`,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send reset email.';
+      if (msg.includes('user-not-found')) {
+        return { ok: false, message: 'No account found with this email address.' };
+      }
+      return { ok: false, message: msg };
+    }
+  }, []);
 
   /* ──────────────────────── admin actions ───────────────────────────────── */
 
@@ -701,6 +732,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       requestWithdrawal,
       applyBonusToBalance,
       resetPassword,
+      sendPasswordResetEmail,
       reviewTransaction,
       updateSettings,
     }),
@@ -727,6 +759,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       requestWithdrawal,
       applyBonusToBalance,
       resetPassword,
+      sendPasswordResetEmail,
       reviewTransaction,
       updateSettings,
     ],

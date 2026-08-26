@@ -12,11 +12,26 @@ import {
   updateProfile,
   sendEmailVerification,
   sendPasswordResetEmail,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
   type User as FirebaseUser,
 } from 'firebase/auth';
 import { auth } from '../firebase';
 
 export type { FirebaseUser };
+
+/** Change password for current logged-in user after re-authenticating. */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const user = auth.currentUser;
+  if (!user || !user.email) throw new Error('No user is currently signed in.');
+  const credential = EmailAuthProvider.credential(user.email, currentPassword);
+  await reauthenticateWithCredential(user, credential);
+  await updatePassword(user, newPassword);
+}
 
 /** Create a new Firebase Auth account and send a verification email. */
 export async function signUp(
