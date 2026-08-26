@@ -135,47 +135,48 @@ export interface PoolStake {
 }
 
 /**
- * House odds engine.
+ * House payout-minimizing algorithm.
  *
- * For every candidate digit we compute what the house would have to pay out.
- * Outcomes are then weighted so that low-payout digits are far more likely,
- * scaled by `houseMargin`, and softened by `randomness` so results stay
- * plausibly random rather than obviously rigged. With an empty pool the draw
- * is uniform.
+ * Evaluates all possible winning digits 0-9 and calculates the total payout
+ * the house would owe players for each outcome. It selects the digit(s) with
+ * the absolute LOWEST payout (least amount of winnings paid out), ensuring the
+ * majority/heaviest stakes lose and the lowest staked orders win.
  */
 export function resolveDigit(pool: PoolStake[], config: OddsConfig): number {
-  if (config.forcedDigit !== null && config.forcedDigit >= 0) {
+  // 1. Admin manual override
+  if (config.forcedDigit !== null && config.forcedDigit >= 0 && config.forcedDigit <= 9) {
     return config.forcedDigit;
   }
 
   const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+  // If no bets placed in this round, pick any digit at random
+  if (!pool || pool.length === 0) {
+    return digits[Math.floor(Math.random() * digits.length)];
+  }
+
+  const totalStaked = pool.reduce((sum, stake) => sum + (stake.amount || 0), 0);
+  if (totalStaked === 0) {
+    return digits[Math.floor(Math.random() * digits.length)];
+  }
+
+  // 2. Compute the exact house payout for every possible digit (0 to 9)
   const payouts = digits.map((digit) =>
-  pool.reduce(
-    (sum, stake) => sum + stake.amount * multiplierFor(stake.selection, digit),
-    0
-  )
+    pool.reduce(
+      (sum, stake) => sum + stake.amount * multiplierFor(stake.selection, digit),
+      0,
+    ),
   );
 
-  const totalStaked = pool.reduce((sum, stake) => sum + stake.amount, 0);
-  if (totalStaked === 0) return digits[Math.floor(Math.random() * 10)];
+  // 3. Find the lowest payout value across all 10 digits
+  const minPayout = Math.min(...payouts);
 
-  const maxPayout = Math.max(...payouts, 1);
-  const bias = Math.min(Math.max(config.houseMargin, 0), 0.4) / 0.4;
-  const chance = Math.min(Math.max(config.randomness, 0), 1);
+  // 4. Find all candidate digits that result in this minimum payout
+  const lowestPayoutDigits = digits.filter((digit) => payouts[digit] === minPayout);
 
-  const weights = payouts.map((payout) => {
-    const favour = 1 - payout / maxPayout; // 1 = cheapest outcome for the house
-    const weighted = 0.05 + Math.pow(favour, 1 + bias * 3);
-    return chance + (1 - chance) * weighted;
-  });
-
-  const total = weights.reduce((sum, w) => sum + w, 0);
-  let ticket = Math.random() * total;
-  for (let i = 0; i < digits.length; i += 1) {
-    ticket -= weights[i];
-    if (ticket <= 0) return digits[i];
-  }
-  return digits[digits.length - 1];
+  // 5. Select randomly among the lowest payout digits
+  const selected = lowestPayoutDigits[Math.floor(Math.random() * lowestPayoutDigits.length)];
+  return selected;
 }
 
 /** Synthetic "price" shown in the trend column, deterministic per period. */
