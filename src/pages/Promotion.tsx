@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CopyIcon, UsersIcon } from 'lucide-react';
+import { CopyIcon, Share2Icon, UsersIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { TopBar } from '../components/layout/TopBar';
@@ -12,7 +12,9 @@ export function Promotion() {
   const [level, setLevel] = useState<1 | 2>(1);
 
   const promoCode = user?.promoCode ?? '000000';
-  const promoLink = `https://prismaplay.io/#/register?code=${promoCode}`;
+  const promoLink = typeof window !== 'undefined'
+    ? `${window.location.origin}/register?code=${promoCode}`
+    : `/register?code=${promoCode}`;
 
   const list = useMemo(
     () => referrals.filter((referral) => referral.level === level),
@@ -22,10 +24,36 @@ export function Promotion() {
 
   async function copy(value: string, label: string) {
     try {
-      await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied.`);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = value;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      toast.success(`${label} copied to clipboard!`);
     } catch {
-      toast.error('Copy failed — select the text manually.');
+      toast.error('Copy failed — please select the text manually.');
+    }
+  }
+
+  async function share() {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join me on 345.GAME!',
+          text: `Use my invite code ${promoCode} and get 20 bonus points!`,
+          url: promoLink,
+        });
+      } catch {}
+    } else {
+      copy(promoLink, 'Promotion link');
     }
   }
 
@@ -119,16 +147,16 @@ export function Promotion() {
               My Promotion Code
             </p>
             <div className="flex items-stretch gap-2">
-              <p className="flex-1 rounded-xl border border-ink-300/40 px-3 py-2.5 text-sm font-bold tabular-nums text-ink-900">
+              <p className="flex-1 rounded-xl border border-ink-300/40 bg-surface-sunken/40 px-3.5 py-2.5 text-base font-extrabold tabular-nums tracking-widest text-ink-900">
                 {promoCode}
               </p>
               <button
                 type="button"
                 onClick={() => copy(promoCode, 'Promotion code')}
                 aria-label="Copy promotion code"
-                className="grid w-12 place-items-center rounded-xl bg-brand-500 text-white transition-colors duration-150 ease-smooth hover:bg-brand-600">
-                
+                className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 text-xs font-bold text-white shadow-sm transition-colors duration-150 ease-smooth hover:bg-brand-600 active:scale-95">
                 <CopyIcon className="h-4 w-4" aria-hidden="true" />
+                Copy
               </button>
             </div>
           </div>
@@ -138,19 +166,28 @@ export function Promotion() {
               My Promotion Link
             </p>
             <div className="flex items-stretch gap-2">
-              <p className="min-w-0 flex-1 break-all rounded-xl border border-ink-300/40 px-3 py-2.5 text-xs text-ink-700">
+              <p className="min-w-0 flex-1 break-all rounded-xl border border-ink-300/40 bg-surface-sunken/40 px-3 py-2.5 text-xs font-medium text-ink-700">
                 {promoLink}
               </p>
               <button
                 type="button"
                 onClick={() => copy(promoLink, 'Promotion link')}
                 aria-label="Copy promotion link"
-                className="grid w-12 shrink-0 place-items-center rounded-xl bg-brand-500 text-white transition-colors duration-150 ease-smooth hover:bg-brand-600">
-                
+                className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 text-xs font-bold text-white shadow-sm transition-colors duration-150 ease-smooth hover:bg-brand-600 active:scale-95">
                 <CopyIcon className="h-4 w-4" aria-hidden="true" />
+                Copy
               </button>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={share}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 py-3 text-sm font-bold text-slate-950 shadow-lift transition-all hover:brightness-105 active:scale-[0.99]"
+          >
+            <Share2Icon className="h-4 w-4" />
+            Share Invitation Link
+          </button>
 
           <p className="text-xs leading-relaxed text-ink-500">
             Level 1 invites earn 1% of every settled bet, level 2 invites earn 0.3%. Commission is
