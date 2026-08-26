@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { MailCheckIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Logo } from '../components/layout/Logo';
 import { Button } from '../components/ui/Button';
@@ -7,8 +8,7 @@ import { TextField } from '../components/ui/TextField';
 import { useApp } from '../contexts/AppContext';
 
 export function Register() {
-  const { register } = useApp();
-  const navigate = useNavigate();
+  const { register, resendVerification } = useApp();
   const [params] = useSearchParams();
 
   const [form, setForm] = useState({
@@ -19,6 +19,8 @@ export function Register() {
     inviteCode: params.get('code') ?? '',
   });
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const [resending, setResending] = useState(false);
 
   function update(key: keyof typeof form) {
     return (event: React.ChangeEvent<HTMLInputElement>) =>
@@ -45,13 +47,68 @@ export function Register() {
     setLoading(false);
 
     if (result.ok) {
-      toast.success(result.message, { duration: 5000 });
-      navigate('/win');
+      setRegistered(true);
     } else {
       toast.error(result.message);
     }
   }
 
+  async function handleResend() {
+    setResending(true);
+    const result = await resendVerification();
+    setResending(false);
+    if (result.ok) {
+      toast.success('Verification email resent! Check your inbox.');
+    } else {
+      toast.error(result.message);
+    }
+  }
+
+  // ── Email sent screen ──────────────────────────────────────────────────────
+  if (registered) {
+    return (
+      <main className="flex flex-1 flex-col justify-center px-5 py-10">
+        <Logo />
+
+        <span className="mt-8 grid h-14 w-14 place-items-center rounded-2xl bg-brand-500 text-white shadow-lift">
+          <MailCheckIcon className="h-7 w-7" aria-hidden="true" />
+        </span>
+
+        <h1 className="mt-5 font-display text-3xl font-extrabold leading-tight tracking-tight text-ink-900">
+          Check your inbox
+        </h1>
+        <p className="mt-2 text-sm text-ink-500">
+          We sent a verification link to{' '}
+          <span className="font-semibold text-ink-800">{form.email}</span>.
+          Click the link in that email to activate your account, then come back here to log in.
+        </p>
+
+        <div className="mt-7 grid gap-3">
+          <Link
+            to="/login"
+            className="flex h-11 w-full items-center justify-center rounded-xl bg-brand-500 px-4 text-sm font-bold text-white shadow-lift transition-opacity hover:opacity-90"
+          >
+            Go to login
+          </Link>
+
+          <Button
+            variant="secondary"
+            block
+            onClick={handleResend}
+            disabled={resending}
+          >
+            {resending ? 'Resending…' : 'Resend verification email'}
+          </Button>
+        </div>
+
+        <p className="mt-5 text-xs text-ink-400">
+          Didn't receive it? Check your spam folder or click "Resend" above.
+        </p>
+      </main>
+    );
+  }
+
+  // ── Registration form ──────────────────────────────────────────────────────
   return (
     <main className="flex flex-1 flex-col justify-center px-5 py-10">
       <Logo />

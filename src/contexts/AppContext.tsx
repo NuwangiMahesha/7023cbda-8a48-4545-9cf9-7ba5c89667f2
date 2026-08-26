@@ -342,14 +342,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback<AppContextValue['login']>(
     async (email, password) => {
       try {
-        await signIn(email, password);
+        const authedUser = await signIn(email, password);
+        if (!authedUser.emailVerified) {
+          // Sign them back out so they can't sneak in
+          await signOutUser();
+          return {
+            ok: false,
+            message: 'Please verify your email first. Check your inbox for the confirmation link.',
+          };
+        }
         return { ok: true, message: 'Welcome back!' };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Login failed.';
         if (
           msg.includes('user-not-found') ||
           msg.includes('wrong-password') ||
-          msg.includes('invalid-credential')
+          msg.includes('invalid-credential') ||
+          msg.includes('Invalid login credentials')
         ) {
           return { ok: false, message: 'Email or password is incorrect.' };
         }
@@ -378,7 +387,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await createUserDoc(fbUser.id, {
           name: name.trim() || 'New Player',
           email: key,
-          emailVerified: true,
+          emailVerified: fbUser.emailVerified,
           password: '',
           balance: 0,
           bonus: 20,
@@ -389,7 +398,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         return {
           ok: true,
-          message: 'Account created! 20 bonus points added to your wallet.',
+          message: 'Account created! Check your email inbox to verify your account.',
         };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Registration failed.';
