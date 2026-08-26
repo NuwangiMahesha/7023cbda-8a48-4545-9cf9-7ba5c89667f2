@@ -139,14 +139,6 @@ export function Login() {
               Create an account
             </Link>
           </p>
-
-          <div className="mt-8 rounded-xl bg-white p-3.5 text-xs leading-relaxed text-ink-500 shadow-card">
-            Administrator portal:{' '}
-            <Link to="/admin" className="font-semibold text-brand-600 hover:underline">
-              /admin
-            </Link>{' '}
-            — admin / admin1234
-          </div>
         </>
       )}
     </main>
