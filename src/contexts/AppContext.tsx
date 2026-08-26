@@ -40,6 +40,7 @@ import {
   signIn,
   signOutUser,
   signUp,
+  verifyEmailOtp,
 } from '../services/supabaseAuth';
 import {
   batchUpdateBets,
@@ -87,8 +88,9 @@ interface AppContextValue {
   referrals: Referral[];
   authLoading: boolean;
   login: (email: string, password: string) => Promise<ActionResult>;
-  register: (input: RegisterInput) => Promise<ActionResult>;
+  register: (input: RegisterInput) => Promise<ActionResult & { emailVerified?: boolean }>;
   resendVerification: (email?: string) => Promise<ActionResult>;
+  verifyEmailCode: (email: string, code: string) => Promise<ActionResult>;
   checkVerification: () => Promise<boolean>;
   logout: () => Promise<void>;
   adminLogin: (username: string, password: string) => ActionResult;
@@ -398,11 +400,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         return {
           ok: true,
-          message: 'Account created! Check your email inbox to verify your account.',
+          emailVerified: fbUser.emailVerified,
+          message: fbUser.emailVerified
+            ? 'Account created! 20 bonus points added to your wallet.'
+            : 'Account created! Please check your email for the 6-digit verification code.',
         };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Registration failed.';
-        if (msg.includes('email-already-in-use')) {
+        if (msg.includes('email-already-in-use') || msg.includes('User already registered')) {
           return { ok: false, message: 'That email address is already registered.' };
         }
         return { ok: false, message: msg };
@@ -410,6 +415,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     [],
   );
+
+  const verifyEmailCode = useCallback(async (email: string, code: string) => {
+    try {
+      const verifiedUser = await verifyEmailOtp(email, code);
+      if (verifiedUser.id) {
+        await updateUserDoc(verifiedUser.id, { emailVerified: true });
+      }
+      return { ok: true, message: 'Email verified successfully! Welcome to Prisma Play.' };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Invalid or expired verification code.';
+      return { ok: false, message: msg };
+    }
+  }, []);
 
   const resendVerification = useCallback(async (email?: string) => {
     try {
@@ -702,6 +720,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       login,
       register,
       resendVerification,
+      verifyEmailCode,
       checkVerification,
       logout,
       adminLogin,
@@ -729,6 +748,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       login,
       register,
       resendVerification,
+      verifyEmailCode,
       checkVerification,
       logout,
       adminLogin,

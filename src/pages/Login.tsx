@@ -8,13 +8,15 @@ import { TextField } from '../components/ui/TextField';
 import { useApp } from '../contexts/AppContext';
 
 export function Login() {
-  const { login, sendPasswordResetEmail, resendVerification } = useApp();
+  const { login, sendPasswordResetEmail, resendVerification, verifyEmailCode } = useApp();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isForgot, setIsForgot] = useState(false);
   const [isUnverified, setIsUnverified] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
@@ -50,12 +52,31 @@ export function Login() {
     }
   }
 
+  async function handleVerifyOtp(event: React.FormEvent) {
+    event.preventDefault();
+    if (!otpCode.trim()) {
+      toast.error('Please enter the 6-digit verification code.');
+      return;
+    }
+
+    setVerifying(true);
+    const result = await verifyEmailCode(email, otpCode.trim());
+    setVerifying(false);
+
+    if (result.ok) {
+      toast.success(result.message, { duration: 5000 });
+      navigate('/win');
+    } else {
+      toast.error(result.message);
+    }
+  }
+
   async function handleResend() {
     setResending(true);
     const result = await resendVerification(email);
     setResending(false);
     if (result.ok) {
-      toast.success('Verification email resent! Check your inbox.');
+      toast.success('Verification code resent! Check your inbox.');
     } else {
       toast.error(result.message);
     }
@@ -67,7 +88,7 @@ export function Login() {
       <main className="flex flex-1 flex-col justify-center px-5 py-10">
         <Logo />
 
-        <span className="mt-8 grid h-14 w-14 place-items-center rounded-2xl bg-win-gold/15 text-win-gold shadow-lift">
+        <span className="mt-8 grid h-14 w-14 place-items-center rounded-2xl bg-brand-500 text-white shadow-lift">
           <MailCheckIcon className="h-7 w-7" aria-hidden="true" />
         </span>
 
@@ -75,27 +96,49 @@ export function Login() {
           Email not verified
         </h1>
         <p className="mt-2 text-sm text-ink-500">
-          Please check your inbox for{' '}
-          <span className="font-semibold text-ink-800">{email}</span> and click the
-          verification link to activate your account.
+          Enter the 6-digit code sent to{' '}
+          <span className="font-semibold text-ink-800">{email}</span> or click the link in your email.
         </p>
 
-        <div className="mt-7 grid gap-3">
-          <Button block size="lg" onClick={handleResend} disabled={resending}>
-            {resending ? 'Resending…' : 'Resend verification email'}
+        <form onSubmit={handleVerifyOtp} className="mt-6 grid gap-3.5">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+              6-Digit Verification Code
+            </label>
+            <input
+              type="text"
+              maxLength={6}
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="123456"
+              className="w-full rounded-xl border border-ink-300/40 bg-white px-4 py-3.5 text-center text-2xl font-bold tracking-[0.3em] text-ink-900 outline-none transition-colors duration-150 ease-smooth placeholder:font-normal placeholder:tracking-normal focus:border-brand-500 focus:ring-2 focus:ring-brand-400/20"
+              autoFocus
+              required
+            />
+          </div>
+
+          <Button type="submit" block size="lg" disabled={verifying}>
+            {verifying ? 'Verifying code…' : 'Verify & Enter Game'}
           </Button>
+
           <Button
+            type="button"
             variant="secondary"
             block
-            onClick={() => setIsUnverified(false)}
+            onClick={handleResend}
+            disabled={resending}
           >
-            ← Back to login
+            {resending ? 'Resending…' : 'Resend verification code'}
           </Button>
-        </div>
 
-        <p className="mt-5 text-xs text-ink-400">
-          Didn't receive it? Check your spam folder or click "Resend" above.
-        </p>
+          <button
+            type="button"
+            onClick={() => setIsUnverified(false)}
+            className="mt-2 text-center text-sm font-semibold text-brand-600 hover:underline"
+          >
+            ← Back to sign in
+          </button>
+        </form>
       </main>
     );
   }

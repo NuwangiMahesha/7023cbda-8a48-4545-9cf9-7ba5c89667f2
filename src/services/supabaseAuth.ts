@@ -60,6 +60,24 @@ export async function checkEmailVerified(): Promise<boolean> {
   return data.user?.email_confirmed_at ? true : false;
 }
 
+/** Verify 6-digit OTP code sent to user's email for signup */
+export async function verifyEmailOtp(email: string, token: string): Promise<AuthUser> {
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: email.trim().toLowerCase(),
+    token: token.trim(),
+    type: 'signup',
+  });
+
+  if (error) throw new Error(error.message);
+  if (!data.user) throw new Error('Failed to verify OTP code');
+
+  return {
+    id: data.user.id,
+    email: data.user.email || '',
+    emailVerified: data.user.email_confirmed_at ? true : false,
+  };
+}
+
 /** Resend verification email to user (by email or current session) */
 export async function resendVerificationEmail(email?: string): Promise<void> {
   let targetEmail = email?.trim().toLowerCase();
