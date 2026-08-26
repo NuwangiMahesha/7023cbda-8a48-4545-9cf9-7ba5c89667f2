@@ -1,7 +1,7 @@
 /**
  * Firestore service layer.
  *
- * Every collection operation lives here.  The rest of the app never imports
+ * Every collection operation lives here. The rest of the app never imports
  * firebase/firestore directly — it only uses the functions exported below.
  *
  * Collections
@@ -19,9 +19,6 @@ import {
   updateDoc,
   addDoc,
   onSnapshot,
-  query,
-  orderBy,
-  limit,
   writeBatch,
   serverTimestamp,
   type Unsubscribe,
@@ -56,13 +53,19 @@ const settingsDoc     = () => doc(db, 'settings', 'platform');
 
 /* ─────────────────────────────── realtime listeners ──────────────────────── */
 
-/** Subscribe to the full users list (admin needs this; players only read own). */
+/** Subscribe to the full users list (admin & app). */
 export function subscribeUsers(
   onChange: (users: User[]) => void,
 ): Unsubscribe {
-  return onSnapshot(usersCol(), (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() } as User)));
-  });
+  return onSnapshot(
+    usersCol(),
+    (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      onChange(list);
+    },
+    (err) => console.error('subscribeUsers error:', err)
+  );
 }
 
 /** Subscribe to the current user's own document. */
@@ -70,51 +73,74 @@ export function subscribeOwnUser(
   uid: string,
   onChange: (user: User | null) => void,
 ): Unsubscribe {
-  return onSnapshot(doc(db, 'users', uid), (snap) => {
-    onChange(snap.exists() ? ({ id: snap.id, ...snap.data() } as User) : null);
-  });
+  return onSnapshot(
+    doc(db, 'users', uid),
+    (snap) => {
+      onChange(snap.exists() ? ({ id: snap.id, ...snap.data() } as User) : null);
+    },
+    (err) => console.error('subscribeOwnUser error:', err)
+  );
 }
 
 /** Subscribe to all transactions, newest first. */
 export function subscribeTransactions(
   onChange: (txs: Transaction[]) => void,
 ): Unsubscribe {
-  const q = query(transactionsCol(), orderBy('createdAt', 'desc'), limit(500));
-  return onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Transaction)));
-  });
+  return onSnapshot(
+    transactionsCol(),
+    (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Transaction));
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      onChange(list);
+    },
+    (err) => console.error('subscribeTransactions error:', err)
+  );
 }
 
-/** Subscribe to bets for a specific user, newest first. */
+/** Subscribe to bets for a specific user. */
 export function subscribeUserBets(
   userId: string,
   onChange: (bets: Bet[]) => void,
 ): Unsubscribe {
-  const q = query(betsCol(), orderBy('createdAt', 'desc'), limit(500));
-  return onSnapshot(q, (snap) => {
-    const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Bet));
-    onChange(all.filter((b) => b.userId === userId));
-  });
+  return onSnapshot(
+    betsCol(),
+    (snap) => {
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Bet));
+      all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      onChange(all.filter((b) => b.userId === userId));
+    },
+    (err) => console.error('subscribeUserBets error:', err)
+  );
 }
 
 /** Subscribe to all bets (admin / round settling). */
 export function subscribeBets(
   onChange: (bets: Bet[]) => void,
 ): Unsubscribe {
-  const q = query(betsCol(), orderBy('createdAt', 'desc'), limit(1000));
-  return onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Bet)));
-  });
+  return onSnapshot(
+    betsCol(),
+    (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Bet));
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      onChange(list);
+    },
+    (err) => console.error('subscribeBets error:', err)
+  );
 }
 
-/** Subscribe to the latest 400 settled rounds. */
+/** Subscribe to settled rounds. */
 export function subscribeRounds(
   onChange: (rounds: Round[]) => void,
 ): Unsubscribe {
-  const q = query(roundsCol(), orderBy('settledAt', 'desc'), limit(400));
-  return onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => d.data() as Round));
-  });
+  return onSnapshot(
+    roundsCol(),
+    (snap) => {
+      const list = snap.docs.map((d) => d.data() as Round);
+      list.sort((a, b) => (b.settledAt || 0) - (a.settledAt || 0));
+      onChange(list);
+    },
+    (err) => console.error('subscribeRounds error:', err)
+  );
 }
 
 /** Subscribe to platform settings. */
@@ -122,14 +148,18 @@ export function subscribeSettings(
   onChange: (settings: PlatformSettings) => void,
   defaultSettings: PlatformSettings,
 ): Unsubscribe {
-  return onSnapshot(settingsDoc(), (snap) => {
-    if (snap.exists()) {
-      onChange(snap.data() as PlatformSettings);
-    } else {
-      setDoc(settingsDoc(), sanitize(defaultSettings)).catch(console.error);
-      onChange(defaultSettings);
-    }
-  });
+  return onSnapshot(
+    settingsDoc(),
+    (snap) => {
+      if (snap.exists()) {
+        onChange(snap.data() as PlatformSettings);
+      } else {
+        setDoc(settingsDoc(), sanitize(defaultSettings)).catch(console.error);
+        onChange(defaultSettings);
+      }
+    },
+    (err) => console.error('subscribeSettings error:', err)
+  );
 }
 
 /* ─────────────────────────────── users ───────────────────────────────────── */
@@ -139,7 +169,7 @@ export async function createUserDoc(uid: string, data: Omit<User, 'id'>): Promis
   await setDoc(doc(db, 'users', uid), sanitize(data));
 }
 
-/** Read a user profile once (used on login to check emailVerified flag). */
+/** Read a user profile once. */
 export async function getUserDoc(uid: string): Promise<User | null> {
   const snap = await getDoc(doc(db, 'users', uid));
   return snap.exists() ? ({ id: snap.id, ...snap.data() } as User) : null;
@@ -184,7 +214,6 @@ export async function createBet(data: Omit<Bet, 'id'>): Promise<string> {
 
 /**
  * Batch-update multiple bets at once (used during round settlement).
- * `updates` is a map of betId → partial Bet fields.
  */
 export async function batchUpdateBets(
   updates: Array<{ id: string; patch: Partial<Omit<Bet, 'id'>> }>,
@@ -199,8 +228,7 @@ export async function batchUpdateBets(
 /* ─────────────────────────────── rounds ──────────────────────────────────── */
 
 /**
- * Write a settled round using periodId as the document id (idempotent —
- * re-settling the same period is a no-op because doc id is the same).
+ * Write a settled round using periodId as doc id.
  */
 export async function createRound(data: Round): Promise<void> {
   await setDoc(doc(db, 'rounds', data.periodId), sanitize(data));
