@@ -91,7 +91,7 @@ interface AppContextValue {
   resendVerification: () => Promise<ActionResult>;
   checkVerification: () => Promise<boolean>;
   logout: () => Promise<void>;
-  adminLogin: (username: string, password: string) => Promise<ActionResult>;
+  adminLogin: (username: string, password: string) => ActionResult;
   adminLogout: () => void;
   placeBet: (
     mode: GameMode,
@@ -431,19 +431,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const adminLogin = useCallback<AppContextValue['adminLogin']>(
     async (username, password) => {
       if (username === adminCredentials.username && password === adminCredentials.password) {
-        // Sign in with admin email account
+        // Admin login uses hardcoded credentials (no Supabase Auth required)
+        setIsAdmin(true);
         try {
-          const adminEmail = 'admin@prismaplay.io';
-          await signIn(adminEmail, 'admin1234');
-          setIsAdmin(true);
-          try {
-            sessionStorage.setItem('prisma_admin', 'true');
-          } catch {}
-          return { ok: true, message: 'Admin session started.' };
-        } catch (error) {
-          console.error('Admin login error:', error);
-          return { ok: false, message: 'Failed to sign in admin account.' };
-        }
+          sessionStorage.setItem('prisma_admin', 'true');
+        } catch {}
+        return { ok: true, message: 'Admin session started.' };
       }
       return { ok: false, message: 'Invalid administrator credentials.' };
     },
