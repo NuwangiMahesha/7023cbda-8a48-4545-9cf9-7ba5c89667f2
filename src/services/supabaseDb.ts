@@ -1,4 +1,4 @@
-/**
+why/**
  * Supabase Database service layer.
  * All PostgreSQL operations for users, transactions, bets, rounds, and settings.
  */
@@ -93,18 +93,23 @@ export async function updateUserDoc(
 
 /** Subscribe to all users (for admin) */
 export function subscribeUsers(onChange: (users: User[]) => void): () => void {
-  const subscription = supabase
-    .from('users')
-    .on('*', (payload) => {
-      fetchAllUsers(onChange);
-    })
-    .subscribe();
-
   // Initial fetch
   fetchAllUsers(onChange);
 
+  // Subscribe to changes using postgres_changes
+  const channel = supabase
+    .channel('users_changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'users' },
+      () => {
+        fetchAllUsers(onChange);
+      },
+    )
+    .subscribe();
+
   return () => {
-    subscription.unsubscribe();
+    channel.unsubscribe();
   };
 }
 
@@ -140,20 +145,23 @@ export function subscribeOwnUser(
   uid: string,
   onChange: (user: User | null) => void,
 ): () => void {
-  const subscription = supabase
-    .from('users')
-    .on('UPDATE', (payload) => {
-      if (payload.new.id === uid) {
-        onChange(mapUser(payload.new));
-      }
-    })
-    .subscribe();
-
   // Initial fetch
   getUserDoc(uid).then(onChange);
 
+  // Subscribe to changes
+  const channel = supabase
+    .channel(`user_${uid}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${uid}` },
+      (payload) => {
+        onChange(mapUser(payload.new));
+      },
+    )
+    .subscribe();
+
   return () => {
-    subscription.unsubscribe();
+    channel.unsubscribe();
   };
 }
 
@@ -207,17 +215,21 @@ export async function updateTransaction(
 export function subscribeTransactions(
   onChange: (txs: Transaction[]) => void,
 ): () => void {
-  const subscription = supabase
-    .from('transactions')
-    .on('*', () => {
-      fetchAllTransactions(onChange);
-    })
-    .subscribe();
-
   fetchAllTransactions(onChange);
 
+  const channel = supabase
+    .channel('transactions_changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'transactions' },
+      () => {
+        fetchAllTransactions(onChange);
+      },
+    )
+    .subscribe();
+
   return () => {
-    subscription.unsubscribe();
+    channel.unsubscribe();
   };
 }
 
@@ -279,17 +291,21 @@ export async function createBet(data: Omit<Bet, 'id'>): Promise<string> {
 
 /** Subscribe to all bets (for admin and round settling) */
 export function subscribeBets(onChange: (bets: Bet[]) => void): () => void {
-  const subscription = supabase
-    .from('bets')
-    .on('*', () => {
-      fetchAllBets(onChange);
-    })
-    .subscribe();
-
   fetchAllBets(onChange);
 
+  const channel = supabase
+    .channel('bets_changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'bets' },
+      () => {
+        fetchAllBets(onChange);
+      },
+    )
+    .subscribe();
+
   return () => {
-    subscription.unsubscribe();
+    channel.unsubscribe();
   };
 }
 
@@ -366,17 +382,21 @@ export async function createRound(data: Round): Promise<void> {
 
 /** Subscribe to latest rounds */
 export function subscribeRounds(onChange: (rounds: Round[]) => void): () => void {
-  const subscription = supabase
-    .from('rounds')
-    .on('*', () => {
-      fetchAllRounds(onChange);
-    })
-    .subscribe();
-
   fetchAllRounds(onChange);
 
+  const channel = supabase
+    .channel('rounds_changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'rounds' },
+      () => {
+        fetchAllRounds(onChange);
+      },
+    )
+    .subscribe();
+
   return () => {
-    subscription.unsubscribe();
+    channel.unsubscribe();
   };
 }
 
@@ -436,21 +456,23 @@ export function subscribeSettings(
   onChange: (settings: PlatformSettings) => void,
   defaultSettings: PlatformSettings,
 ): () => void {
-  const subscription = supabase
-    .from('settings')
-    .on('UPDATE', (payload) => {
-      if (payload.new.id === 'platform') {
-        onChange(mapSettings(payload.new, defaultSettings));
-      }
-    })
-    .subscribe();
-
   getSettings().then((settings) => {
     onChange(settings || defaultSettings);
   });
 
+  const channel = supabase
+    .channel('settings_changes')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'settings', filter: `id=eq.platform` },
+      (payload) => {
+        onChange(mapSettings(payload.new, defaultSettings));
+      },
+    )
+    .subscribe();
+
   return () => {
-    subscription.unsubscribe();
+    channel.unsubscribe();
   };
 }
 
