@@ -673,6 +673,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await updateUserDoc(target.userId, {
             balance: Number((owner.balance + target.amount).toFixed(2)),
           });
+
+          // Award 5% referral bonus to inviter if player was invited by someone
+          if (owner.invitedBy) {
+            const inviter = usersRef.current.find(
+              (u) => u.promoCode && u.promoCode.toLowerCase() === owner.invitedBy?.toLowerCase()
+            );
+            if (inviter) {
+              const bonusAmount = Number((target.amount * 0.05).toFixed(2));
+              await updateUserDoc(inviter.id, {
+                bonus: Number(((inviter.bonus || 0) + bonusAmount).toFixed(2)),
+              });
+            }
+          }
         }
       }
       if (target.type === 'withdrawal' && status === 'rejected') {
