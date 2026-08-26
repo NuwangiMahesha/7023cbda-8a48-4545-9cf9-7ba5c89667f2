@@ -20,6 +20,7 @@ export async function signUp(
     email,
     password,
     options: {
+      emailRedirectTo: `${window.location.origin}/login`,
       data: {
         display_name: displayName,
       },
@@ -67,6 +68,9 @@ export async function resendVerificationEmail(): Promise<void> {
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email: data.user.email,
+    options: {
+      emailRedirectTo: `${window.location.origin}/login`,
+    },
   });
 
   if (error) throw new Error(error.message);
@@ -74,7 +78,9 @@ export async function resendVerificationEmail(): Promise<void> {
 
 /** Send password reset email */
 export async function sendPasswordReset(email: string): Promise<void> {
-  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/login`,
+  });
   if (error) throw new Error(error.message);
 }
 
