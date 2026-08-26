@@ -6,6 +6,7 @@ import {
   KeyRoundIcon,
   LogOutIcon,
   ReceiptTextIcon,
+  ShieldCheckIcon,
   UploadIcon } from
 'lucide-react';
 import { toast } from 'sonner';
@@ -17,7 +18,8 @@ const links = [
 { to: '/wallet/recharge', label: 'Recharge', Icon: DownloadIcon },
 { to: '/wallet/withdrawal', label: 'Withdrawal', Icon: UploadIcon },
 { to: '/wallet/transactions', label: 'Transactions', Icon: ReceiptTextIcon },
-{ to: '/wallet/reset-password', label: 'Reset Password', Icon: KeyRoundIcon }];
+{ to: '/wallet/reset-password', label: 'Reset Password', Icon: KeyRoundIcon },
+{ to: '/admin', label: 'Administrator Portal', Icon: ShieldCheckIcon }];
 
 
 export function Wallet() {
