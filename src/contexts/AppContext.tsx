@@ -20,6 +20,7 @@ import {
   User,
 } from '../types';
 import { adminCredentials, defaultSettings, seedReferrals } from '../data/seed';
+import { seedFirestoreIfNeeded } from '../data/seedFirestore';
 import {
   GAME_MODES,
   ROUND_DURATIONS,
@@ -177,6 +178,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   betsRef.current     = bets;
   usersRef.current    = users;
   settingsRef.current = settings;
+
+  useEffect(() => {
+    seedFirestoreIfNeeded();
+  }, []);
 
   /* ──────────────────────── auth state listener ─────────────────────────── */
   useEffect(() => {
