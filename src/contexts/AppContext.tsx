@@ -151,6 +151,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /* ── auth ── */
   const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [appReady, setAppReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAppReady(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
   const [isAdmin, setIsAdmin] = useState(() => {
     try {
       return sessionStorage.getItem('prisma_admin') === 'true';
@@ -716,7 +723,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bets,
       rounds,
       referrals,
-      authLoading,
+      authLoading: authLoading || !appReady,
       login,
       register,
       resendVerification,
@@ -745,6 +752,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       rounds,
       referrals,
       authLoading,
+      appReady,
       login,
       register,
       resendVerification,

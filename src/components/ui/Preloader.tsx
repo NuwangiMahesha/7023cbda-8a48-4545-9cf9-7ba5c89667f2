@@ -1,8 +1,24 @@
-﻿import React from 'react';
+﻿import React, { useEffect, useState } from 'react';
 
 export function Preloader({ message = 'Loading game engine…' }: { message?: string }) {
+  const [progress, setProgress] = useState(15);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 95) {
+          clearInterval(timer);
+          return 98;
+        }
+        return prev + Math.floor(Math.random() * 15 + 10);
+      });
+    }, 120);
+
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 px-6 text-white selection:bg-amber-500 selection:text-slate-950">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 px-6 text-white selection:bg-amber-500 selection:text-slate-950 transition-opacity duration-300">
       {/* Background ambient glow */}
       <div className="pointer-events-none absolute -top-24 h-96 w-96 rounded-full bg-amber-500/15 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 h-96 w-96 rounded-full bg-yellow-500/10 blur-3xl" />
@@ -37,9 +53,17 @@ export function Preloader({ message = 'Loading game engine…' }: { message?: st
           {message}
         </p>
 
-        {/* Animated Progress Bar */}
-        <div className="mt-5 h-1.5 w-44 overflow-hidden rounded-full bg-slate-900 border border-amber-500/20">
-          <div className="h-full w-full origin-left animate-pulse rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+        {/* Animated Progress Bar & Percentage */}
+        <div className="mt-5 flex w-48 flex-col items-center gap-2">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-900 border border-amber-500/20">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.8)] transition-all duration-200 ease-out"
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            />
+          </div>
+          <span className="text-[11px] font-bold tabular-nums text-amber-400">
+            {Math.min(progress, 100)}%
+          </span>
         </div>
       </div>
     </div>
