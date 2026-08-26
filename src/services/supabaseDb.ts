@@ -1,4 +1,4 @@
-why/**
+/**
  * Supabase Database service layer.
  * All PostgreSQL operations for users, transactions, bets, rounds, and settings.
  */

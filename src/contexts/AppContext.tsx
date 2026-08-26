@@ -375,7 +375,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const fbUser = await signUp(key, password, name.trim() || 'New Player');
         const promoCode = String(100000 + Math.floor(Math.random() * 899999));
-        await createUserDoc(fbUser.uid, {
+        await createUserDoc(fbUser.id, {
           name: name.trim() || 'New Player',
           email: key,
           emailVerified: true,
@@ -383,7 +383,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           balance: 0,
           bonus: 20,
           promoCode,
-          invitedBy: inviteCode?.trim() || null,
+          invitedBy: inviteCode?.trim() || undefined,
           createdAt: Date.now(),
         });
 
@@ -429,7 +429,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const adminLogin = useCallback<AppContextValue['adminLogin']>(
-    async (username, password) => {
+    (username, password) => {
       if (username === adminCredentials.username && password === adminCredentials.password) {
         // Admin login uses hardcoded credentials (no Supabase Auth required)
         setIsAdmin(true);
@@ -586,7 +586,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!user) return { ok: false, message: 'Sign in first.' };
       if (next.length < 6) return { ok: false, message: 'New password must be at least 6 characters.' };
       try {
-        await changePassword(current, next);
+        await changePassword(next);
         return { ok: true, message: 'Password updated successfully!' };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Failed to update password.';
