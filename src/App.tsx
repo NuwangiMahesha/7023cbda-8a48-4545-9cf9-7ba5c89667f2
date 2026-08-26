@@ -27,16 +27,13 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminRequests } from './pages/admin/AdminRequests';
 import { AdminGameControl } from './pages/admin/AdminGameControl';
 import { AdminSettings } from './pages/admin/AdminSettings';
+import { Preloader } from './components/ui/Preloader';
 
 function RequirePlayer() {
   const { user, authLoading } = useApp();
   const location = useLocation();
   if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-sunken">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-      </div>
-    );
+    return <Preloader message="Authenticating player session…" />;
   }
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <Outlet />;
@@ -51,11 +48,7 @@ function RequireAdmin() {
 function GuestOnly() {
   const { user, authLoading } = useApp();
   if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-sunken">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-      </div>
-    );
+    return <Preloader message="Connecting to secure servers…" />;
   }
   if (user) return <Navigate to="/win" replace />;
   return <Outlet />;
