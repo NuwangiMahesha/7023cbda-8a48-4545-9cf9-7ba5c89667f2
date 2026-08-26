@@ -53,14 +53,16 @@ const settingsDoc     = () => doc(db, 'settings', 'platform');
 
 /* ─────────────────────────────── realtime listeners ──────────────────────── */
 
-/** Subscribe to the full users list (admin & app). */
+/** Subscribe to the full users list (admin & app), filtering out empty phantom documents. */
 export function subscribeUsers(
   onChange: (users: User[]) => void,
 ): Unsubscribe {
   return onSnapshot(
     usersCol(),
     (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+      const list = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as User))
+        .filter((u) => Boolean(u && (u.name || u.email)));
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       onChange(list);
     },
@@ -76,7 +78,8 @@ export function subscribeOwnUser(
   return onSnapshot(
     doc(db, 'users', uid),
     (snap) => {
-      onChange(snap.exists() ? ({ id: snap.id, ...snap.data() } as User) : null);
+      const data = snap.data();
+      onChange(snap.exists() && data && (data.name || data.email) ? ({ id: snap.id, ...data } as User) : null);
     },
     (err) => console.error('subscribeOwnUser error:', err)
   );
@@ -89,7 +92,9 @@ export function subscribeTransactions(
   return onSnapshot(
     transactionsCol(),
     (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Transaction));
+      const list = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as Transaction))
+        .filter((tx) => Boolean(tx && tx.type));
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       onChange(list);
     },
@@ -105,7 +110,9 @@ export function subscribeUserBets(
   return onSnapshot(
     betsCol(),
     (snap) => {
-      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Bet));
+      const all = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as Bet))
+        .filter((b) => Boolean(b && b.userId));
       all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       onChange(all.filter((b) => b.userId === userId));
     },
@@ -120,7 +127,9 @@ export function subscribeBets(
   return onSnapshot(
     betsCol(),
     (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Bet));
+      const list = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as Bet))
+        .filter((b) => Boolean(b && b.amount));
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       onChange(list);
     },
@@ -135,7 +144,9 @@ export function subscribeRounds(
   return onSnapshot(
     roundsCol(),
     (snap) => {
-      const list = snap.docs.map((d) => d.data() as Round);
+      const list = snap.docs
+        .map((d) => d.data() as Round)
+        .filter((r) => Boolean(r && r.periodId));
       list.sort((a, b) => (b.settledAt || 0) - (a.settledAt || 0));
       onChange(list);
     },
@@ -151,7 +162,7 @@ export function subscribeSettings(
   return onSnapshot(
     settingsDoc(),
     (snap) => {
-      if (snap.exists()) {
+      if (snap.exists() && snap.data()) {
         onChange(snap.data() as PlatformSettings);
       } else {
         setDoc(settingsDoc(), sanitize(defaultSettings)).catch(console.error);
@@ -172,7 +183,8 @@ export async function createUserDoc(uid: string, data: Omit<User, 'id'>): Promis
 /** Read a user profile once. */
 export async function getUserDoc(uid: string): Promise<User | null> {
   const snap = await getDoc(doc(db, 'users', uid));
-  return snap.exists() ? ({ id: snap.id, ...snap.data() } as User) : null;
+  const data = snap.data();
+  return snap.exists() && data && (data.name || data.email) ? ({ id: snap.id, ...data } as User) : null;
 }
 
 /** Patch selected fields on a user document. */
@@ -212,9 +224,7 @@ export async function createBet(data: Omit<Bet, 'id'>): Promise<string> {
   return ref.id;
 }
 
-/**
- * Batch-update multiple bets at once (used during round settlement).
- */
+/** Batch-update multiple bets at once (used during round settlement). */
 export async function batchUpdateBets(
   updates: Array<{ id: string; patch: Partial<Omit<Bet, 'id'>> }>,
 ): Promise<void> {
@@ -227,9 +237,7 @@ export async function batchUpdateBets(
 
 /* ─────────────────────────────── rounds ──────────────────────────────────── */
 
-/**
- * Write a settled round using periodId as doc id.
- */
+/** Write a settled round using periodId as doc id. */
 export async function createRound(data: Round): Promise<void> {
   await setDoc(doc(db, 'rounds', data.periodId), sanitize(data));
 }

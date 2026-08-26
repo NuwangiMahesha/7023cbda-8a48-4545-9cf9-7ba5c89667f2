@@ -8,23 +8,28 @@ import { formatPoints } from '../../utils/game';
 export function AdminDashboard() {
   const { users, transactions, bets, rounds } = useApp();
 
+  const validUsers = useMemo(
+    () => users.filter((u) => u && (u.name || u.email)),
+    [users]
+  );
+
   const stats = useMemo(() => {
     const sum = (predicate: (type: string, status: string) => boolean) =>
-    transactions.
-    filter((tx) => predicate(tx.type, tx.status)).
-    reduce((total, tx) => total + tx.amount, 0);
+      transactions
+        .filter((tx) => tx && predicate(tx.type, tx.status))
+        .reduce((total, tx) => total + (tx.amount || 0), 0);
 
     const deposits = sum((type, status) => type === 'recharge' && status !== 'rejected');
     const withdrawals = sum((type, status) => type === 'withdrawal' && status !== 'rejected');
-    const wagered = bets.reduce((total, bet) => total + bet.amount, 0);
-    const paidOut = bets.reduce((total, bet) => total + bet.payout, 0);
+    const wagered = bets.reduce((total, bet) => total + (bet?.amount || 0), 0);
+    const paidOut = bets.reduce((total, bet) => total + (bet?.payout || 0), 0);
     return {
       deposits,
       withdrawals,
       wagered,
       paidOut,
       grossMargin: wagered - paidOut,
-      pending: transactions.filter((tx) => tx.status === 'pending').length
+      pending: transactions.filter((tx) => tx && tx.status === 'pending').length,
     };
   }, [transactions, bets]);
 
@@ -55,10 +60,10 @@ export function AdminDashboard() {
         </article>
 
         {[
-        { label: 'Registered players', value: users.length, tone: 'text-ink-900' },
-        { label: 'Pending requests', value: stats.pending, tone: 'text-win-gold' }].
-        map((item) =>
-        <article key={item.label} className="rounded-2xl bg-white p-5 shadow-card">
+          { label: 'Registered players', value: validUsers.length, tone: 'text-ink-900' },
+          { label: 'Pending requests', value: stats.pending, tone: 'text-win-gold' },
+        ].map((item) => (
+          <article key={item.label} className="rounded-2xl bg-white p-5 shadow-card">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">
               {item.label}
             </p>
@@ -66,7 +71,7 @@ export function AdminDashboard() {
               {item.value}
             </p>
           </article>
-        )}
+        ))}
       </section>
 
       <section aria-label="Cash flow" className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -96,29 +101,45 @@ export function AdminDashboard() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-ink-500">
-                <th scope="col" className="px-5 py-2 text-left font-semibold">Player</th>
-                <th scope="col" className="px-5 py-2 text-left font-semibold">Joined</th>
-                <th scope="col" className="px-5 py-2 text-right font-semibold">Balance</th>
-                <th scope="col" className="px-5 py-2 text-right font-semibold">Bonus</th>
+                <th scope="col" className="px-5 py-2 text-left font-semibold">
+                  Player
+                </th>
+                <th scope="col" className="px-5 py-2 text-left font-semibold">
+                  Joined
+                </th>
+                <th scope="col" className="px-5 py-2 text-right font-semibold">
+                  Balance
+                </th>
+                <th scope="col" className="px-5 py-2 text-right font-semibold">
+                  Bonus
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-300/30">
-              {users.map((user) =>
-              <tr key={user.id}>
-                  <td className="px-5 py-3">
-                    <span className="block font-semibold text-ink-900">{user.name}</span>
-                    <span className="text-xs text-ink-500">{user.email}</span>
-                  </td>
-                  <td className="px-5 py-3 text-ink-500">
-                    {format(new Date(user.createdAt), 'dd MMM yyyy')}
-                  </td>
-                  <td className="px-5 py-3 text-right font-bold tabular-nums text-ink-900">
-                    {formatPoints(user.balance)}
-                  </td>
-                  <td className="px-5 py-3 text-right tabular-nums text-win-gold">
-                    {formatPoints(user.bonus)}
+              {validUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-5 py-6 text-center text-xs text-ink-500">
+                    No registered players yet
                   </td>
                 </tr>
+              ) : (
+                validUsers.map((user) => (
+                  <tr key={user.id}>
+                    <td className="px-5 py-3">
+                      <span className="block font-semibold text-ink-900">{user.name || 'Player'}</span>
+                      <span className="text-xs text-ink-500">{user.email || 'No email'}</span>
+                    </td>
+                    <td className="px-5 py-3 text-ink-500">
+                      {user.createdAt ? format(new Date(user.createdAt), 'dd MMM yyyy') : 'Recent'}
+                    </td>
+                    <td className="px-5 py-3 text-right font-bold tabular-nums text-ink-900">
+                      {formatPoints(user.balance ?? 0)}
+                    </td>
+                    <td className="px-5 py-3 text-right tabular-nums text-win-gold">
+                      {formatPoints(user.bonus ?? 0)}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -129,21 +150,21 @@ export function AdminDashboard() {
             Latest settlements
           </h2>
           <ul className="mt-3 divide-y divide-ink-300/30">
-            {latest.map((round) =>
-            <li
-              key={`${round.mode}-${round.periodId}`}
-              className="flex items-center justify-between py-2.5 text-sm">
-              
+            {latest.map((round) => (
+              <li
+                key={`${round.mode}-${round.periodId}`}
+                className="flex items-center justify-between py-2.5 text-sm"
+              >
                 <span>
                   <span className="block font-semibold text-ink-900">{round.mode}</span>
                   <span className="text-xs tabular-nums text-ink-500">{round.periodId}</span>
                 </span>
                 <ResultBall digit={round.digit} />
               </li>
-            )}
+            ))}
           </ul>
         </section>
       </div>
-    </div>);
-
+    </div>
+  );
 }
