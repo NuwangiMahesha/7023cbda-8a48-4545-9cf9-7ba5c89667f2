@@ -13,10 +13,11 @@ service cloud.firestore {
     }
 
     // ── users ──────────────────────────────────────────────────────────────
-    // Players can only read and update their own profile.
-    // Only the backend (admin SDK) or the user themselves can create/delete.
+    // Players can read their own profile.
+    // Admin panel needs to read all users, so we allow reading any user doc
+    // if authenticated (in production, restrict to admin UIDs only).
     match /users/{userId} {
-      allow read:   if isOwner(userId);
+      allow read:   if isAuth();  // Allow reading any user if authenticated
       allow create: if isOwner(userId);
       allow update: if isOwner(userId)
                     && !request.resource.data.diff(resource.data).affectedKeys()
@@ -26,13 +27,10 @@ service cloud.firestore {
 
     // ── transactions ────────────────────────────────────────────────────────
     // Any authenticated user can create a transaction for themselves.
-    // Users can only read their own transactions.
-    // Only admin (no direct client rule — enforced via Firestore admin SDK or
-    // a Cloud Function) can update status.  For this client-only setup we
-    // allow updates from any auth'd user so the admin panel works.
+    // Admin needs to read all transactions, so we allow reading if authenticated.
+    // Updates allowed for admin panel operations.
     match /transactions/{txId} {
-      allow read:   if isAuth()
-                    && (resource.data.userId == request.auth.uid);
+      allow read:   if isAuth();  // Admin needs to read all transactions
       allow create: if isAuth()
                     && request.resource.data.userId == request.auth.uid;
       allow update: if isAuth();  // admin panel runs in the browser too
@@ -40,11 +38,11 @@ service cloud.firestore {
     }
 
     // ── bets ────────────────────────────────────────────────────────────────
-    // Users can create bets for themselves and read their own bets.
+    // Users can create bets for themselves.
+    // Admin needs to read all bets, so allow reading if authenticated.
     // Updates are allowed (round settling patches status, multiplier, payout).
     match /bets/{betId} {
-      allow read:   if isAuth()
-                    && resource.data.userId == request.auth.uid;
+      allow read:   if isAuth();  // Admin needs to read all bets
       allow create: if isAuth()
                     && request.resource.data.userId == request.auth.uid;
       allow update: if isAuth();  // settling written by leader tab

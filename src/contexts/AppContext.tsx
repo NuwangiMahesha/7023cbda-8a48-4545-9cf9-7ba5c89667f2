@@ -89,7 +89,7 @@ interface AppContextValue {
   resendVerification: () => Promise<ActionResult>;
   checkVerification: () => Promise<boolean>;
   logout: () => Promise<void>;
-  adminLogin: (username: string, password: string) => ActionResult;
+  adminLogin: (username: string, password: string) => Promise<ActionResult>;
   adminLogout: () => void;
   placeBet: (
     mode: GameMode,
@@ -146,7 +146,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /* ── auth ── */
   const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    try {
+      return sessionStorage.getItem('prisma_admin') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   /* ── data ── */
   const [user, setUser]               = useState<User | null>(null);
@@ -172,8 +178,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /* ──────────────────────── auth state listener ─────────────────────────── */
   useEffect(() => {
     const unsub = onAuthChange((fbUser) => {
-      setFirebaseUid(fbUser?.uid ?? null);
-      setAuthLoading(false);
+      if (fbUser) {
+        setFirebaseUid(fbUser.uid);
+      } else {
+        setFirebaseUid(null);
+        setUser(null);
+        setAuthLoading(false);
+      }
     });
     return unsub;
   }, []);
@@ -186,44 +197,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       return;
     }
-    const unsub = subscribeOwnUser(firebaseUid, (u) => setUser(u));
+    const unsub = subscribeOwnUser(firebaseUid, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
     return unsub;
   }, [firebaseUid]);
 
   // All users (needed by admin panel)
   useEffect(() => {
-    if (!firebaseUid) { setUsers([]); return; }
+    // Subscribe if either a user is logged in OR admin is logged in
+    if (!firebaseUid && !isAdmin) { setUsers([]); return; }
     const unsub = subscribeUsers((u) => setUsers(u));
     return unsub;
-  }, [firebaseUid]);
+  }, [firebaseUid, isAdmin]);
 
   // Transactions
   useEffect(() => {
-    if (!firebaseUid) { setTransactions([]); return; }
+    if (!firebaseUid && !isAdmin) { setTransactions([]); return; }
     const unsub = subscribeTransactions((txs) => setTransactions(txs));
     return unsub;
-  }, [firebaseUid]);
+  }, [firebaseUid, isAdmin]);
 
   // Bets
   useEffect(() => {
-    if (!firebaseUid) { setBets([]); return; }
+    if (!firebaseUid && !isAdmin) { setBets([]); return; }
     const unsub = subscribeBets((b) => setBets(b));
     return unsub;
-  }, [firebaseUid]);
+  }, [firebaseUid, isAdmin]);
 
   // Rounds
   useEffect(() => {
-    if (!firebaseUid) return;
+    if (!firebaseUid && !isAdmin) return;
     const unsub = subscribeRounds((r) => setRounds(r));
     return unsub;
-  }, [firebaseUid]);
+  }, [firebaseUid, isAdmin]);
 
   // Platform settings
   useEffect(() => {
-    if (!firebaseUid) return;
+    if (!firebaseUid && !isAdmin) return;
     const unsub = subscribeSettings((s) => setSettings(s), defaultSettings);
     return unsub;
-  }, [firebaseUid]);
+  }, [firebaseUid, isAdmin]);
 
   /* ──────────────────────── clock ───────────────────────────────────────── */
   useEffect(() => {
@@ -419,18 +434,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     setIsAdmin(false);
+    try {
+      sessionStorage.removeItem('prisma_admin');
+    } catch {}
     await signOutUser();
   }, []);
 
-  const adminLogin = useCallback<AppContextValue['adminLogin']>((username, password) => {
+  const adminLogin = useCallback<AppContextValue['adminLogin']>(async (username, password) => {
     if (username === adminCredentials.username && password === adminCredentials.password) {
-      setIsAdmin(true);
-      return { ok: true, message: 'Admin session started.' };
+      // Sign in to Firebase with admin credentials to access Firestore
+      try {
+        const adminEmail = 'admin@system.local';
+        const adminPassword = 'admin1234secure';
+        await signIn(adminEmail, adminPassword);
+        setIsAdmin(true);
+        try {
+          sessionStorage.setItem('prisma_admin', 'true');
+        } catch {}
+        return { ok: true, message: 'Admin session started.' };
+      } catch (error) {
+        // If admin Firebase account doesn't exist, create it
+        try {
+          const adminEmail = 'admin@system.local';
+          const adminPassword = 'admin1234secure';
+          const fbUser = await signUp(adminEmail, adminPassword, 'Administrator');
+          await createUserDoc(fbUser.uid, {
+            name: 'Administrator',
+            email: adminEmail,
+            emailVerified: true,
+            password: '',
+            balance: 0,
+            bonus: 0,
+            promoCode: 'ADMIN',
+            invitedBy: null,
+            createdAt: Date.now(),
+          });
+          setIsAdmin(true);
+          try {
+            sessionStorage.setItem('prisma_admin', 'true');
+          } catch {}
+          return { ok: true, message: 'Admin session started.' };
+        } catch (createError) {
+          console.error('Failed to create/login admin account:', createError);
+          return { ok: false, message: 'Failed to initialize admin account.' };
+        }
+      }
     }
     return { ok: false, message: 'Invalid administrator credentials.' };
   }, []);
 
-  const adminLogout = useCallback(() => setIsAdmin(false), []);
+  const adminLogout = useCallback(() => {
+    setIsAdmin(false);
+    try {
+      sessionStorage.removeItem('prisma_admin');
+    } catch {}
+  }, []);
 
   /* ──────────────────────── money actions ───────────────────────────────── */
 

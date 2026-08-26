@@ -31,7 +31,7 @@ export function AppShell({ showNav = true }: {showNav?: boolean;}) {
         </dl>
       </aside>
 
-      <div className="flex h-screen w-full max-w-[430px] flex-col overflow-hidden border-x border-ink-300/30 bg-surface-page">
+      <div className="flex h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden border-x border-ink-300/30 bg-surface-page">
         <Outlet />
         {showNav ? <BottomNav /> : null}
       </div>

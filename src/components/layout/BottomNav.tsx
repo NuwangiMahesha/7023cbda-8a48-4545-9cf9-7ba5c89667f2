@@ -15,13 +15,11 @@ const tabs = [
 { to: '/trend', label: 'Trend', Icon: BarChart3Icon },
 { to: '/promotion', label: 'Promotion', Icon: Share2Icon }];
 
-
 export function BottomNav() {
   return (
     <nav
       aria-label="Primary"
-      className="sticky bottom-0 z-20 border-t border-ink-300/30 bg-white/95 backdrop-blur">
-      
+      className="sticky bottom-0 z-20 border-t border-ink-300/30 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       <ul className="mx-auto flex h-16 items-stretch justify-between px-2">
         {tabs.map(({ to, label, Icon, center }) =>
         <li key={to} className="flex-1">

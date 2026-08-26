@@ -12,9 +12,9 @@ export function AdminLogin() {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin1234');
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const result = adminLogin(username, password);
+    const result = await adminLogin(username, password);
     if (result.ok) {
       toast.success(result.message);
       navigate('/admin/dashboard');
