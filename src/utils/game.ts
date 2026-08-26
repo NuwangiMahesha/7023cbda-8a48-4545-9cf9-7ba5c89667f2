@@ -21,29 +21,69 @@ export function colorsForDigit(digit: number): WinColor[] {
   return digit % 2 === 1 ? ['green'] : ['red'];
 }
 
-/** Payout multiplier for a selection given a settled digit. 0 means the bet lost. */
-export function multiplierFor(selection: BetSelection, digit: number): number {
-  const colors = colorsForDigit(digit);
-  if (selection.kind === 'number') {
-    return selection.digit === digit ? 9 : 0;
+/** Helper to normalize any format of selection into BetSelection safely */
+export function normalizeSelection(raw: unknown): BetSelection {
+  if (!raw) return { kind: 'number', digit: 0 };
+  if (typeof raw === 'string') {
+    if (raw.startsWith('{')) {
+      try {
+        return normalizeSelection(JSON.parse(raw));
+      } catch {}
+    }
+    const lower = raw.toLowerCase().trim();
+    if (['green', 'violet', 'red'].includes(lower)) {
+      return { kind: 'color', color: lower as WinColor };
+    }
+    const num = Number(lower.replace(/\D/g, ''));
+    if (!isNaN(num)) {
+      return { kind: 'number', digit: num };
+    }
+    return { kind: 'color', color: 'green' };
   }
-  if (selection.color === 'violet') {
+  if (typeof raw === 'number') {
+    return { kind: 'number', digit: raw };
+  }
+  const obj = raw as Record<string, unknown>;
+  if (obj.kind === 'number' || typeof obj.digit === 'number') {
+    return { kind: 'number', digit: Number(obj.digit ?? 0) };
+  }
+  if (obj.kind === 'color' || obj.color) {
+    const c = String(obj.color || 'green').toLowerCase();
+    return { kind: 'color', color: (['green', 'violet', 'red'].includes(c) ? c : 'green') as WinColor };
+  }
+  return { kind: 'color', color: 'green' };
+}
+
+/** Payout multiplier for a selection given a settled digit. 0 means the bet lost. */
+export function multiplierFor(selection: BetSelection | unknown, digit: number): number {
+  const norm = normalizeSelection(selection);
+  const colors = colorsForDigit(digit);
+  if (norm.kind === 'number') {
+    return norm.digit === digit ? 9 : 0;
+  }
+  if (norm.color === 'violet') {
     return colors.includes('violet') ? 4.5 : 0;
   }
-  if (!colors.includes(selection.color)) return 0;
+  if (!colors.includes(norm.color)) return 0;
   // A violet-carrying digit pays the base colour at a reduced rate.
   return colors.includes('violet') ? 1.5 : 2;
 }
 
 /** Advertised multiplier shown on the betting buttons, before settlement. */
-export function displayMultiplier(selection: BetSelection): number {
-  if (selection.kind === 'number') return 9;
-  return selection.color === 'violet' ? 4.5 : 2;
+export function displayMultiplier(selection: BetSelection | unknown): number {
+  const norm = normalizeSelection(selection);
+  if (norm.kind === 'number') return 9;
+  return norm.color === 'violet' ? 4.5 : 2;
 }
 
-export function selectionLabel(selection: BetSelection): string {
-  if (selection.kind === 'number') return `Number ${selection.digit}`;
-  return selection.color.charAt(0).toUpperCase() + selection.color.slice(1);
+export function selectionLabel(selection: BetSelection | unknown): string {
+  if (!selection) return 'Selection';
+  const norm = normalizeSelection(selection);
+  if (norm.kind === 'number') return `Number ${norm.digit}`;
+  if (norm.color && typeof norm.color === 'string') {
+    return norm.color.charAt(0).toUpperCase() + norm.color.slice(1);
+  }
+  return 'Selection';
 }
 
 function pad(value: number, size: number): string {
