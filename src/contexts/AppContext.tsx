@@ -347,14 +347,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback<AppContextValue['login']>(
     async (email, password) => {
       try {
-        const fbUser = await signIn(email, password);
-        await fbUser.reload();
-        if (!fbUser.emailVerified) {
-          return {
-            ok: false,
-            message: 'Please check your email inbox and click the verification link before logging in.',
-          };
-        }
+        await signIn(email, password);
         return { ok: true, message: 'Welcome back!' };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Login failed.';
@@ -390,7 +383,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await createUserDoc(fbUser.uid, {
           name: name.trim() || 'New Player',
           email: key,
-          emailVerified: false,
+          emailVerified: true,
           password: '',
           balance: 0,
           bonus: 20,
@@ -398,13 +391,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           invitedBy: inviteCode?.trim() || null,
           createdAt: Date.now(),
         });
-        
-        // Sign out immediately after registration to prevent auto-login
-        await signOutUser();
-        
+
         return {
           ok: true,
-          message: 'Verification link sent to your email! Please check your inbox.',
+          message: 'Account created! 20 bonus points added to your wallet.',
         };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Registration failed.';
