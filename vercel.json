@@ -1,8 +1,9 @@
 {
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  "env": {
+    "VITE_SUPABASE_URL": "https://jpdqaawqztrmqwkwrrin.supabase.co",
+    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwZHFhYXdxenRybXF3a3dycmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3MjQ1MzIsImV4cCI6MjEwMzMwMDUzMn0.-pW3ZJedOiatTFeMfQwWGnIUXLI-Hj_OsBv8L40BSyY"
+  },
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": "dist"
 }
