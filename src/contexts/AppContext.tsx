@@ -88,7 +88,7 @@ interface AppContextValue {
   authLoading: boolean;
   login: (email: string, password: string) => Promise<ActionResult>;
   register: (input: RegisterInput) => Promise<ActionResult>;
-  resendVerification: () => Promise<ActionResult>;
+  resendVerification: (email?: string) => Promise<ActionResult>;
   checkVerification: () => Promise<boolean>;
   logout: () => Promise<void>;
   adminLogin: (username: string, password: string) => ActionResult;
@@ -411,9 +411,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const resendVerification = useCallback(async () => {
+  const resendVerification = useCallback(async (email?: string) => {
     try {
-      await resendVerificationEmail();
+      await resendVerificationEmail(email);
       return { ok: true, message: 'Verification email resent! Please check your inbox.' };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to resend verification email.';

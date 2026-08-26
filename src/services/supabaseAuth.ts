@@ -60,14 +60,18 @@ export async function checkEmailVerified(): Promise<boolean> {
   return data.user?.email_confirmed_at ? true : false;
 }
 
-/** Resend verification email to current user */
-export async function resendVerificationEmail(): Promise<void> {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user?.email) throw new Error('No user logged in');
+/** Resend verification email to user (by email or current session) */
+export async function resendVerificationEmail(email?: string): Promise<void> {
+  let targetEmail = email?.trim().toLowerCase();
+  if (!targetEmail) {
+    const { data } = await supabase.auth.getUser();
+    targetEmail = data.user?.email;
+  }
+  if (!targetEmail) throw new Error('No email address provided to resend verification to');
 
   const { error } = await supabase.auth.resend({
     type: 'signup',
-    email: data.user.email,
+    email: targetEmail,
     options: {
       emailRedirectTo: `${window.location.origin}/login`,
     },

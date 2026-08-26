@@ -52,7 +52,7 @@ export function Login() {
 
   async function handleResend() {
     setResending(true);
-    const result = await resendVerification();
+    const result = await resendVerification(email);
     setResending(false);
     if (result.ok) {
       toast.success('Verification email resent! Check your inbox.');

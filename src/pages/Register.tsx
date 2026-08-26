@@ -55,7 +55,7 @@ export function Register() {
 
   async function handleResend() {
     setResending(true);
-    const result = await resendVerification();
+    const result = await resendVerification(form.email);
     setResending(false);
     if (result.ok) {
       toast.success('Verification email resent! Check your inbox.');
