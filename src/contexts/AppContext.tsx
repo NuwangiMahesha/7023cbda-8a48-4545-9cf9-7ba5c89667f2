@@ -56,6 +56,7 @@ import {
   updateTransaction,
   updateUserDoc,
 } from '../services/firestore';
+import { useLeaderTab } from '../hooks/useLeaderTab';
 
 /* ─────────────────────────────── types ───────────────────────────────────── */
 
