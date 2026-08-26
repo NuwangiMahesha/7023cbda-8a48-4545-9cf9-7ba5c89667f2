@@ -40,7 +40,7 @@ import {
   signIn,
   signOutUser,
   signUp,
-} from '../services/auth';
+} from '../services/supabaseAuth';
 import {
   batchUpdateBets,
   createBet,
@@ -54,10 +54,10 @@ import {
   subscribeSettings,
   subscribeTransactions,
   subscribeUsers,
-  updateSettings as fsUpdateSettings,
+  updateSettings as dbUpdateSettings,
   updateTransaction,
   updateUserDoc,
-} from '../services/supabase';
+} from '../services/supabaseDb';
 import { useLeaderTab } from '../hooks/useLeaderTab';
 
 /* ─────────────────────────────── types ───────────────────────────────────── */
@@ -182,7 +182,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsub = onAuthChange((fbUser) => {
       if (fbUser) {
-        setFirebaseUid(fbUser.uid);
+        setFirebaseUid(fbUser.id);
       } else {
         setFirebaseUid(null);
         setUser(null);
@@ -330,7 +330,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       // Reset forced digit if one was used
       if (config.forcedDigit !== null) {
-        await fsUpdateSettings({ forcedDigit: null });
+        await dbUpdateSettings({ forcedDigit: null });
       }
     };
 
@@ -428,48 +428,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await signOutUser();
   }, []);
 
-  const adminLogin = useCallback<AppContextValue['adminLogin']>(async (username, password) => {
-    if (username === adminCredentials.username && password === adminCredentials.password) {
-      // Sign in to Firebase with admin credentials to access Firestore
-      try {
-        const adminEmail = 'admin@system.local';
-        const adminPassword = 'admin1234secure';
-        await signIn(adminEmail, adminPassword);
-        setIsAdmin(true);
+  const adminLogin = useCallback<AppContextValue['adminLogin']>(
+    async (username, password) => {
+      if (username === adminCredentials.username && password === adminCredentials.password) {
+        // Sign in with admin email account
         try {
-          sessionStorage.setItem('prisma_admin', 'true');
-        } catch {}
-        return { ok: true, message: 'Admin session started.' };
-      } catch (error) {
-        // If admin Firebase account doesn't exist, create it
-        try {
-          const adminEmail = 'admin@system.local';
-          const adminPassword = 'admin1234secure';
-          const fbUser = await signUp(adminEmail, adminPassword, 'Administrator');
-          await createUserDoc(fbUser.uid, {
-            name: 'Administrator',
-            email: adminEmail,
-            emailVerified: true,
-            password: '',
-            balance: 0,
-            bonus: 0,
-            promoCode: 'ADMIN',
-            invitedBy: null,
-            createdAt: Date.now(),
-          });
+          const adminEmail = 'admin@prismaplay.io';
+          await signIn(adminEmail, 'admin1234');
           setIsAdmin(true);
           try {
             sessionStorage.setItem('prisma_admin', 'true');
           } catch {}
           return { ok: true, message: 'Admin session started.' };
-        } catch (createError) {
-          console.error('Failed to create/login admin account:', createError);
-          return { ok: false, message: 'Failed to initialize admin account.' };
+        } catch (error) {
+          console.error('Admin login error:', error);
+          return { ok: false, message: 'Failed to sign in admin account.' };
         }
       }
-    }
-    return { ok: false, message: 'Invalid administrator credentials.' };
-  }, []);
+      return { ok: false, message: 'Invalid administrator credentials.' };
+    },
+    [],
+  );
 
   const adminLogout = useCallback(() => {
     setIsAdmin(false);
@@ -699,7 +678,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateSettings = useCallback<AppContextValue['updateSettings']>(
     async (patch) => {
-      await fsUpdateSettings(patch);
+      await dbUpdateSettings(patch);
     },
     [],
   );
