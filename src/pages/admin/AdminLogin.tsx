@@ -5,22 +5,32 @@ import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/TextField';
 import { useApp } from '../../contexts/AppContext';
+import { Preloader } from '../../components/ui/Preloader';
 
 export function AdminLogin() {
-  const { adminLogin } = useApp();
+  const { adminLogin, authLoading } = useApp();
   const navigate = useNavigate();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin1234');
+  const [loggingIn, setLoggingIn] = useState(false);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    const result = adminLogin(username, password);
-    if (result.ok) {
-      toast.success(result.message);
-      navigate('/admin/dashboard');
-    } else {
-      toast.error(result.message);
-    }
+    setLoggingIn(true);
+    setTimeout(() => {
+      const result = adminLogin(username, password);
+      if (result.ok) {
+        toast.success(result.message);
+        navigate('/admin/dashboard');
+      } else {
+        setLoggingIn(false);
+        toast.error(result.message);
+      }
+    }, 600);
+  }
+
+  if (authLoading || loggingIn) {
+    return <Preloader message="Verifying administrator session…" />;
   }
 
   return (

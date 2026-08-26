@@ -40,7 +40,10 @@ function RequirePlayer() {
 }
 
 function RequireAdmin() {
-  const { isAdmin } = useApp();
+  const { isAdmin, authLoading } = useApp();
+  if (authLoading) {
+    return <Preloader message="Loading admin control panel…" />;
+  }
   if (!isAdmin) return <Navigate to="/admin" replace />;
   return <Outlet />;
 }
