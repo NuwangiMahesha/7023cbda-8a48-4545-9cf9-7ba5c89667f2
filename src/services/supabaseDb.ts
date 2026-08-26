@@ -268,6 +268,38 @@ async function fetchAllTransactions(onChange: (txs: Transaction[]) => void) {
 
 /* ─────────────────────────────── Bets ────────────────────────────── */
 
+/**
+ * Fetch ALL pending bets for a specific periodId directly from the database.
+ * Used at settlement time to guarantee the complete pool — avoids relying on
+ * the potentially stale in-memory subscription snapshot.
+ */
+export async function fetchPendingBetsByPeriod(periodId: string): Promise<Bet[]> {
+  const { data, error } = await supabase
+    .from('bets')
+    .select('*')
+    .eq('period_id', periodId)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('fetchPendingBetsByPeriod error:', error);
+    return [];
+  }
+
+  return (data || []).map((bet) => ({
+    id: bet.id,
+    userId: bet.user_id,
+    periodId: bet.period_id,
+    mode: bet.mode,
+    duration: bet.duration,
+    selection: bet.selection,
+    amount: Number(bet.amount),
+    multiplier: Number(bet.multiplier),
+    payout: Number(bet.payout),
+    status: bet.status,
+    createdAt: bet.created_at,
+  }));
+}
+
 /** Create a new bet */
 export async function createBet(data: Omit<Bet, 'id'>): Promise<string> {
   const { data: result, error } = await supabase

@@ -48,6 +48,7 @@ import {
   createRound,
   createTransaction,
   createUserDoc,
+  fetchPendingBetsByPeriod,
   getUserDoc,
   subscribeBets,
   subscribeOwnUser,
@@ -266,21 +267,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     if (!closedDurations.length) return;
 
-    const pending = betsRef.current.filter((bet) => bet.status === 'pending');
-    const resolvedByPeriod = new Map<string, number>();
-
     const settleWork = async () => {
+      // Map of periodId → resolved digit
+      const resolvedByPeriod = new Map<string, number>();
+      // Map of periodId → all pending bets (fresh from DB)
+      const betsByPeriod = new Map<string, Bet[]>();
+
+      // Phase 1: For each closed duration+mode, fetch fresh bets from DB,
+      //          run the minimum-payout algorithm, and write the round result.
       for (const duration of closedDurations) {
         const closedAt = blockStart(blockIndexFor(now, duration) - 1, duration);
         for (const mode of GAME_MODES) {
           const periodId = periodIdFor(closedAt, mode, duration);
-          const pool = pending
-            .filter((bet) => bet.periodId === periodId)
-            .map((bet) => ({ selection: bet.selection, amount: bet.amount }));
+
+          // Skip if we already settled this period (guard against double-fire)
+          if (resolvedByPeriod.has(periodId)) continue;
+
+          // ── FRESH DB FETCH — guarantees all players' bets are included ──
+          const freshBets = await fetchPendingBetsByPeriod(periodId);
+          betsByPeriod.set(periodId, freshBets);
+
+          const pool = freshBets.map((bet) => ({
+            selection: bet.selection,
+            amount: bet.amount,
+          }));
+
+          // Pick the digit that costs the house the LEAST (heaviest side loses)
           const digit = resolveDigit(pool, config);
           resolvedByPeriod.set(periodId, digit);
 
-          // Write the settled round to Firestore
           await createRound({
             periodId,
             mode,
@@ -293,33 +308,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Settle bets
+      // Phase 2: Settle each bet using the resolved digit for its period
       const betUpdates: Array<{ id: string; patch: Partial<Omit<Bet, 'id'>> }> = [];
       const payoutByUser = new Map<string, number>();
 
-      for (const bet of pending) {
-        const digit = resolvedByPeriod.get(bet.periodId);
+      for (const [periodId, bets] of betsByPeriod.entries()) {
+        const digit = resolvedByPeriod.get(periodId);
         if (digit === undefined) continue;
-        const multiplier = multiplierFor(bet.selection, digit);
-        const payout = Number((bet.amount * multiplier).toFixed(2));
-        if (payout > 0) {
-          payoutByUser.set(bet.userId, (payoutByUser.get(bet.userId) ?? 0) + payout);
+
+        for (const bet of bets) {
+          const multiplier = multiplierFor(bet.selection, digit);
+          const payout = Number((bet.amount * multiplier).toFixed(2));
+          if (payout > 0) {
+            payoutByUser.set(bet.userId, (payoutByUser.get(bet.userId) ?? 0) + payout);
+          }
+          betUpdates.push({
+            id: bet.id,
+            patch: {
+              multiplier,
+              payout,
+              status: payout > 0 ? 'won' : 'lost',
+            },
+          });
         }
-        betUpdates.push({
-          id: bet.id,
-          patch: {
-            multiplier,
-            payout,
-            status: payout > 0 ? 'won' : 'lost',
-          },
-        });
       }
 
       if (betUpdates.length) {
         await batchUpdateBets(betUpdates);
       }
 
-      // Credit winners' balances + write payout transactions
+      // Phase 3: Credit winners and write payout transactions
       for (const [userId, amount] of payoutByUser.entries()) {
         const owner = usersRef.current.find((u) => u.id === userId);
         const currentBalance = owner?.balance ?? 0;
@@ -337,7 +355,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      // Reset forced digit if one was used
+      // Reset admin forced digit after use
       if (config.forcedDigit !== null) {
         await dbUpdateSettings({ forcedDigit: null });
       }
