@@ -207,34 +207,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, [firebaseUid]);
 
-  // All users (needed by admin panel)
+  // All users (needed by admin panel and app)
   useEffect(() => {
-    // Subscribe if either a user is logged in OR admin is logged in
-    if (!firebaseUid && !isAdmin) { setUsers([]); return; }
     const unsub = subscribeUsers((u) => setUsers(u));
     return unsub;
-  }, [firebaseUid, isAdmin]);
+  }, []);
 
   // Transactions
   useEffect(() => {
-    if (!firebaseUid && !isAdmin) { setTransactions([]); return; }
     const unsub = subscribeTransactions((txs) => setTransactions(txs));
     return unsub;
-  }, [firebaseUid, isAdmin]);
+  }, []);
 
   // Bets
   useEffect(() => {
-    if (!firebaseUid && !isAdmin) { setBets([]); return; }
     const unsub = subscribeBets((b) => setBets(b));
     return unsub;
-  }, [firebaseUid, isAdmin]);
+  }, []);
 
   // Rounds
   useEffect(() => {
-    if (!firebaseUid && !isAdmin) return;
     const unsub = subscribeRounds((r) => setRounds(r));
     return unsub;
-  }, [firebaseUid, isAdmin]);
+  }, []);
 
   // Platform settings
   useEffect(() => {
