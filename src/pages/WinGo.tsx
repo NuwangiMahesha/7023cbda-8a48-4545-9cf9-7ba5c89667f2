@@ -65,58 +65,56 @@ export function WinGo() {
         <div
           role="group"
           aria-label="Draw interval"
-          className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-1.5 shadow-card">
-          
-          {ROUND_DURATIONS.map((option) =>
-          <button
-            key={option}
-            type="button"
-            onClick={() => setDuration(option)}
-            aria-pressed={duration === option}
-            className={`flex h-12 flex-col items-center justify-center rounded-xl text-sm font-bold transition-colors duration-150 ease-smooth ${
-            duration === option ?
-            'bg-brand-500 text-white' :
-            'text-ink-500 hover:bg-surface-sunken'}`
-            }>
-            
+          className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-1.5 shadow-card border border-ink-300/20">
+          {ROUND_DURATIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setDuration(option)}
+              aria-pressed={duration === option}
+              className={`flex h-12 flex-col items-center justify-center rounded-xl text-sm font-bold transition-all duration-150 ease-smooth ${
+                duration === option
+                  ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500 text-slate-950 shadow-md'
+                  : 'text-ink-500 hover:bg-surface-sunken'
+              }`}
+            >
               Win Go {durationLabel(option)}
               <span
-              className={`text-[11px] font-semibold tabular-nums ${
-              duration === option ? 'text-brand-100' : 'text-ink-300'}`
-              }>
-              
+                className={`text-[11px] font-bold tabular-nums ${
+                  duration === option ? 'text-slate-900/80' : 'text-ink-400'
+                }`}
+              >
                 {formatCountdown(secondsRemaining(now, option))}
               </span>
             </button>
-          )}
+          ))}
         </div>
 
         <section
           aria-label="Current period"
-          className="mt-3 rounded-2xl bg-brand-500 p-4 text-white shadow-lift">
-          
+          className="mt-3 rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/70 p-4 text-white shadow-xl border border-amber-500/30">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-100">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-400">
                 Period · Win Go {durationLabel(duration)}
               </p>
-              <p className="font-display text-lg font-bold tabular-nums">{periodId}</p>
+              <p className="font-display text-xl font-extrabold tabular-nums tracking-wide text-white">{periodId}</p>
             </div>
             <div className="text-right">
-              <p className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-100">
+              <p className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-400">
                 <ClockIcon className="h-3.5 w-3.5" aria-hidden="true" /> Count down
               </p>
               <p
-                className={`font-display text-3xl font-extrabold tabular-nums transition-colors duration-150 ease-smooth ${
-                locked ? 'text-win-gold' : 'text-white'}`
-                }
-                aria-live="polite">
-                
+                className={`font-display text-3xl font-extrabold tabular-nums tracking-wider transition-colors duration-150 ease-smooth ${
+                  locked ? 'text-win-red animate-pulse' : 'text-amber-300'
+                }`}
+                aria-live="polite"
+              >
                 {formatCountdown(remaining)}
               </p>
             </div>
           </div>
-          <div className="mt-4 flex items-center justify-between border-t border-white/20 pt-3">
+          <div className="mt-4 flex items-center justify-between border-t border-amber-500/20 pt-3">
             <div className="flex items-center gap-1.5">
               {recent.map((round) =>
               <ResultBall key={round.periodId} digit={round.digit} size="sm" />
