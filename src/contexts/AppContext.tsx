@@ -380,6 +380,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           invitedBy: inviteCode?.trim() || null,
           createdAt: Date.now(),
         });
+        
+        // Sign out immediately after registration to prevent auto-login
+        await signOutUser();
+        
         return {
           ok: true,
           message: 'Verification link sent to your email! Please check your inbox.',
