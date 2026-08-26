@@ -58,7 +58,7 @@ import {
   updateSettings as fsUpdateSettings,
   updateTransaction,
   updateUserDoc,
-} from '../services/firestore';
+} from '../services/supabase';
 import { useLeaderTab } from '../hooks/useLeaderTab';
 
 /* ─────────────────────────────── types ───────────────────────────────────── */
