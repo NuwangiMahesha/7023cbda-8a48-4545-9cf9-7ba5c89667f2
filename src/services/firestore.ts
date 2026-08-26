@@ -1,15 +1,5 @@
 /**
- * Firestore service layer.
- *
- * Every collection operation lives here. The rest of the app never imports
- * firebase/firestore directly — it only uses the functions exported below.
- *
- * Collections
- *   users         — player profiles (doc id = Firebase Auth uid)
- *   transactions  — recharge / withdrawal / bet / payout records
- *   bets          — individual bet documents
- *   rounds        — settled game rounds (doc id = periodId)
- *   settings      — single document "platform" with PlatformSettings fields
+ * Firestore service layer optimized for quota safety and high performance.
  */
 import {
   collection,
@@ -19,6 +9,8 @@ import {
   updateDoc,
   addDoc,
   onSnapshot,
+  query,
+  limit,
   writeBatch,
   serverTimestamp,
   type Unsubscribe,
@@ -53,12 +45,13 @@ const settingsDoc     = () => doc(db, 'settings', 'platform');
 
 /* ─────────────────────────────── realtime listeners ──────────────────────── */
 
-/** Subscribe to the full users list (admin & app), filtering out empty phantom documents. */
+/** Subscribe to users list (limited to 50 for quota safety). */
 export function subscribeUsers(
   onChange: (users: User[]) => void,
 ): Unsubscribe {
+  const q = query(usersCol(), limit(50));
   return onSnapshot(
-    usersCol(),
+    q,
     (snap) => {
       const list = snap.docs
         .map((d) => ({ id: d.id, ...d.data() } as User))
@@ -85,12 +78,13 @@ export function subscribeOwnUser(
   );
 }
 
-/** Subscribe to all transactions, newest first. */
+/** Subscribe to recent transactions (limited to 50 for quota safety). */
 export function subscribeTransactions(
   onChange: (txs: Transaction[]) => void,
 ): Unsubscribe {
+  const q = query(transactionsCol(), limit(50));
   return onSnapshot(
-    transactionsCol(),
+    q,
     (snap) => {
       const list = snap.docs
         .map((d) => ({ id: d.id, ...d.data() } as Transaction))
@@ -107,8 +101,9 @@ export function subscribeUserBets(
   userId: string,
   onChange: (bets: Bet[]) => void,
 ): Unsubscribe {
+  const q = query(betsCol(), limit(50));
   return onSnapshot(
-    betsCol(),
+    q,
     (snap) => {
       const all = snap.docs
         .map((d) => ({ id: d.id, ...d.data() } as Bet))
@@ -120,12 +115,13 @@ export function subscribeUserBets(
   );
 }
 
-/** Subscribe to all bets (admin / round settling). */
+/** Subscribe to all bets (limited to 50 for quota safety). */
 export function subscribeBets(
   onChange: (bets: Bet[]) => void,
 ): Unsubscribe {
+  const q = query(betsCol(), limit(50));
   return onSnapshot(
-    betsCol(),
+    q,
     (snap) => {
       const list = snap.docs
         .map((d) => ({ id: d.id, ...d.data() } as Bet))
@@ -137,12 +133,13 @@ export function subscribeBets(
   );
 }
 
-/** Subscribe to settled rounds. */
+/** Subscribe to latest settled rounds (limited to 40 for quota safety). */
 export function subscribeRounds(
   onChange: (rounds: Round[]) => void,
 ): Unsubscribe {
+  const q = query(roundsCol(), limit(40));
   return onSnapshot(
-    roundsCol(),
+    q,
     (snap) => {
       const list = snap.docs
         .map((d) => d.data() as Round)
