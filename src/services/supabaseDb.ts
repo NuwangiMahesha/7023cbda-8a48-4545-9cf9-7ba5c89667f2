@@ -146,7 +146,12 @@ export function subscribeOwnUser(
   onChange: (user: User | null) => void,
 ): () => void {
   // Initial fetch
-  getUserDoc(uid).then(onChange);
+  getUserDoc(uid)
+    .then(onChange)
+    .catch((err) => {
+      console.warn('Could not fetch user profile:', err);
+      onChange(null);
+    });
 
   // Subscribe to changes
   const channel = supabase
@@ -456,9 +461,14 @@ export function subscribeSettings(
   onChange: (settings: PlatformSettings) => void,
   defaultSettings: PlatformSettings,
 ): () => void {
-  getSettings().then((settings) => {
-    onChange(settings || defaultSettings);
-  });
+  getSettings()
+    .then((settings) => {
+      onChange(settings || defaultSettings);
+    })
+    .catch((err) => {
+      console.warn('Could not fetch settings:', err);
+      onChange(defaultSettings);
+    });
 
   const channel = supabase
     .channel('settings_changes')
