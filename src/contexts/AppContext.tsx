@@ -427,7 +427,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ok: true,
           emailVerified: fbUser.emailVerified,
           message: fbUser.emailVerified
-            ? 'Account created! 20 bonus points added to your wallet.'
+            ? 'Account created! 20 bonus coins added to your wallet.'
             : 'Account created! Please check your email for the 6-digit verification code.',
         };
       } catch (err: unknown) {
@@ -511,7 +511,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, message: 'Betting is paused for maintenance.' };
       }
       if (amount < settings.minStake) {
-        return { ok: false, message: `Minimum stake is ${settings.minStake} points.` };
+        return { ok: false, message: `Minimum stake is ${settings.minStake} coins.` };
       }
       if (amount > user.balance) {
         return { ok: false, message: 'Insufficient balance. Recharge to continue.' };
@@ -576,7 +576,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         note:      'Awaiting admin confirmation',
         createdAt: Date.now(),
       });
-      return { ok: true, message: `Transfer submitted — ${points} points pending admin approval.` };
+      return { ok: true, message: `Transfer submitted — ${points} coins pending admin approval.` };
     },
     [firebaseUid, settings.minRechargeUsdt, settings.pointsPerUsdt, transactions, user],
   );
@@ -585,7 +585,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async (amount, address) => {
       if (!user || !firebaseUid) return { ok: false, message: 'Sign in first.' };
       if (!Number.isFinite(amount) || amount < settings.minStake) {
-        return { ok: false, message: `Minimum withdrawal is ${settings.minStake} points.` };
+        return { ok: false, message: `Minimum withdrawal is ${settings.minStake} coins.` };
       }
       if (amount > user.balance) return { ok: false, message: 'Amount exceeds your balance.' };
       const trimmed = address.trim();
@@ -628,7 +628,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         method:   'Bonus applied to balance',
         createdAt: Date.now(),
       });
-      return { ok: true, message: `${amount} bonus points moved to your balance.` };
+      return { ok: true, message: `${amount} bonus coins moved to your balance.` };
     },
     [firebaseUid, user],
   );

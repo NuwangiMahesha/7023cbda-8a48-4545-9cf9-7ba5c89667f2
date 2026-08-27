@@ -99,12 +99,12 @@ export function Recharge() {
               inputMode="decimal"
               value={usdt}
               onChange={(event) => setUsdt(event.target.value)}
-              hint={`1 USDT = ${settings.pointsPerUsdt} points · minimum ${settings.minRechargeUsdt} USDT`} />
+              hint={`1 USDT = ${settings.pointsPerUsdt} coins · minimum ${settings.minRechargeUsdt} USDT`} />
             
             <div className="flex items-center justify-between rounded-xl bg-surface-sunken px-4 py-3">
               <span className="text-xs text-ink-500">You will receive</span>
               <span className="font-display text-lg font-extrabold tabular-nums text-ink-900">
-                {formatPoints(points)} points
+                {formatPoints(points)} coins
               </span>
             </div>
             <TextField
@@ -140,7 +140,7 @@ export function Recharge() {
             then tap Transfer Finish. Your request goes to the admin review queue.
           </li>
           <li>
-            3. Points are credited as soon as an administrator confirms the transaction on-chain.
+            3. Coins are credited as soon as an administrator confirms the transaction on-chain.
           </li>
         </ol>
       </main>

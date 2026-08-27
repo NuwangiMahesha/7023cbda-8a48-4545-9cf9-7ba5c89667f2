@@ -232,7 +232,7 @@ export function WinGo() {
           <p className="mt-3 text-xs leading-relaxed text-brand-100">
               Green and Red pay 2×, but 1.5× when the winning number is 0 or 5. Violet pays 4.5×
               and only lands on 0 or 5. An exact number pays 9×. Minimum stake {settings.minStake}{' '}
-              points. Betting closes {lockWindow}s before each draw.
+              coins. Betting closes {lockWindow}s before each draw.
             </p> :
           null}
         </section>
@@ -419,7 +419,7 @@ export function WinGo() {
                       </div>
                       <div className="pl-3 text-right">
                         <p className="text-sm font-extrabold tabular-nums text-ink-900">
-                          {formatPoints(bet.amount)} pts
+                          {formatPoints(bet.amount)} coins
                         </p>
                         <p
                           className={`text-xs font-bold ${
@@ -431,7 +431,7 @@ export function WinGo() {
                           }`}
                         >
                           {bet.status === 'won'
-                            ? `+${formatPoints(bet.payout)} pts`
+                            ? `+${formatPoints(bet.payout)} coins`
                             : bet.status === 'lost'
                             ? 'Lost'
                             : 'Pending'}

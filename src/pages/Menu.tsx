@@ -23,7 +23,7 @@ export function Menu() {
           className="rounded-2xl bg-white p-4 shadow-card">
           
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">
-            Available points
+            Available coins
           </p>
           <p className="mt-1 font-display text-4xl font-extrabold tabular-nums text-ink-900">
             {formatPoints(user?.balance ?? 0)}

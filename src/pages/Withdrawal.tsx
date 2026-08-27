@@ -64,13 +64,13 @@ export function Withdrawal() {
               required />
             
             <TextField
-              label="Amount (points)"
+              label="Amount (coins)"
               type="number"
               inputMode="numeric"
               min={settings.minStake}
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
-              hint={`Minimum ${settings.minStake} points · 1 USDT = ${settings.pointsPerUsdt} points`}
+              hint={`Minimum ${settings.minStake} coins · 1 USDT = ${settings.pointsPerUsdt} coins`}
               required />
             
             <div className="flex items-center justify-between rounded-xl bg-surface-sunken px-4 py-3">

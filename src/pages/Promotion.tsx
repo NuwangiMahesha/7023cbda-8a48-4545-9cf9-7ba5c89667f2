@@ -48,7 +48,7 @@ export function Promotion() {
       try {
         await navigator.share({
           title: 'Join me on 345.GAME!',
-          text: `Use my invite code ${promoCode} and get 20 bonus points!`,
+          text: `Use my invite code ${promoCode} and get 20 bonus coins!`,
           url: promoLink,
         });
       } catch {}

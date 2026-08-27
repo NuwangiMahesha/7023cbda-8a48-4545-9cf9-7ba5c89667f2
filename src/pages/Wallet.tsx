@@ -19,7 +19,7 @@ const financialApps = [
   {
     to: '/wallet/recharge',
     label: 'USDT Recharge',
-    desc: 'Deposit USDT (TRC20) & add points',
+    desc: 'Deposit USDT (TRC20) & add coins',
     Icon: DownloadIcon,
     color: 'text-win-green bg-win-green/10',
   },
@@ -78,7 +78,7 @@ export function Wallet() {
           <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/20 pt-3 text-sm">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-brand-100">Bonus</p>
-              <p className="font-bold tabular-nums">{formatPoints(user?.bonus ?? 0)} pts</p>
+              <p className="font-bold tabular-nums">{formatPoints(user?.bonus ?? 0)} coins</p>
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wide text-brand-100">Pending Requests</p>

@@ -46,7 +46,7 @@ export function BetSheet({ mode, duration, periodId, selection, onClose }: BetSh
   async function submit() {
     if (!selection) return;
     if (total < settings.minStake) {
-      toast.error(`Minimum stake is ${settings.minStake} points.`);
+      toast.error(`Minimum stake is ${settings.minStake} coins.`);
       return;
     }
     const result = await placeBet(mode, duration, selection, total);
@@ -190,12 +190,12 @@ export function BetSheet({ mode, duration, periodId, selection, onClose }: BetSh
                 Balance {formatPoints(user?.balance ?? 0)} · min {settings.minStake}
               </span>
               <span className="font-display text-xl font-extrabold text-brand-600">
-                {formatPoints(total)} pts
+                {formatPoints(total)} coins
               </span>
             </div>
 
             <Button block size="lg" className="mt-4" onClick={submit}>
-              Confirm bet · win up to {formatPoints(total * multiplier)}
+              Confirm bet · win up to {formatPoints(total * multiplier)} coins
             </Button>
           </motion.div>
         </motion.div>

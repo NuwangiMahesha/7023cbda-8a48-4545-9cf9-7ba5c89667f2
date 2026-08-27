@@ -21,7 +21,7 @@ export function TopBar() {
           className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunken px-3 py-1 text-xs font-bold text-win-gold transition-colors duration-150 ease-smooth hover:bg-brand-50"
         >
           <CoinsIcon className="h-3.5 w-3.5" aria-hidden="true" />
-          {formatPoints(user?.balance ?? 0)} pts
+          {formatPoints(user?.balance ?? 0)} coins
         </Link>
       </div>
 

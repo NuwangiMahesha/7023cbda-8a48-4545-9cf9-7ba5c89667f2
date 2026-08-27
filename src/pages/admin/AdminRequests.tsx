@@ -87,7 +87,7 @@ export function AdminRequests() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-display text-lg font-extrabold tabular-nums text-ink-900">
-                    {formatPoints(tx.amount)} pts
+                    {formatPoints(tx.amount)} coins
                   </span>
                   {tx.status === 'pending' ?
               <span className="flex gap-2">

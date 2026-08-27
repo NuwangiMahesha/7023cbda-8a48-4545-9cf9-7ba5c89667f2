@@ -208,7 +208,7 @@ export function AdminGameControl() {
             {openBets.map((bet) =>
           <li key={bet.id} className="flex items-center justify-between px-5 py-3 text-sm">
                 <span className="font-semibold text-ink-900">{selectionLabel(bet.selection)}</span>
-                <span className="tabular-nums text-ink-700">{formatPoints(bet.amount)} pts</span>
+                <span className="tabular-nums text-ink-700">{formatPoints(bet.amount)} coins</span>
               </li>
           )}
           </ul> :

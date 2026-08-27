@@ -168,7 +168,7 @@ export function Register() {
         Create account
       </h1>
       <p className="mt-1.5 text-sm text-ink-500">
-        Register to get instant access. 20 bonus points land in your wallet immediately!
+        Register to get instant access. 20 bonus coins land in your wallet immediately!
       </p>
 
       <form onSubmit={handleRegister} className="mt-7 grid gap-3.5">
