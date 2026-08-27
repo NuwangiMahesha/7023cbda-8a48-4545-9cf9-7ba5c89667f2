@@ -6,7 +6,8 @@ import { Button } from '../../components/ui/Button';
 import { useApp } from '../../contexts/AppContext';
 import { formatPoints } from '../../utils/game';
 
-type Tab = 'pending' | 'history';
+type RequestType = 'withdrawal' | 'recharge' | 'all';
+type StatusTab = 'pending' | 'history';
 
 const statusTone: Record<string, string> = {
   pending: 'bg-win-gold/15 text-win-gold border border-win-gold/30',
@@ -17,22 +18,31 @@ const statusTone: Record<string, string> = {
 
 export function AdminRequests() {
   const { transactions, reviewTransaction, settings } = useApp();
-  const [tab, setTab] = useState<Tab>('pending');
+  const [typeFilter, setTypeFilter] = useState<RequestType>('withdrawal');
+  const [statusFilter, setStatusFilter] = useState<StatusTab>('pending');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const pendingCount = transactions.filter(
-    (tx) => tx.status === 'pending' && (tx.type === 'recharge' || tx.type === 'withdrawal')
-  ).length;
+  const counts = useMemo(() => {
+    const pending = transactions.filter((tx) => tx.status === 'pending');
+    return {
+      pendingWithdrawals: pending.filter((tx) => tx.type === 'withdrawal').length,
+      pendingRecharges: pending.filter((tx) => tx.type === 'recharge').length,
+      totalPending: pending.filter((tx) => tx.type === 'recharge' || tx.type === 'withdrawal').length,
+    };
+  }, [transactions]);
 
-  const rows = useMemo(
-    () =>
-      transactions.filter((tx) => {
-        const isMoneyMove = tx.type === 'recharge' || tx.type === 'withdrawal';
-        if (!isMoneyMove) return false;
-        return tab === 'pending' ? tx.status === 'pending' : tx.status !== 'pending';
-      }),
-    [transactions, tab]
-  );
+  const rows = useMemo(() => {
+    return transactions.filter((tx) => {
+      const isMoneyMove = tx.type === 'recharge' || tx.type === 'withdrawal';
+      if (!isMoneyMove) return false;
+
+      // Filter by type
+      if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
+
+      // Filter by status
+      return statusFilter === 'pending' ? tx.status === 'pending' : tx.status !== 'pending';
+    });
+  }, [transactions, typeFilter, statusFilter]);
 
   async function review(id: string, status: 'approved' | 'rejected') {
     await reviewTransaction(id, status);
@@ -72,21 +82,97 @@ export function AdminRequests() {
         </p>
       </header>
 
-      <div className="mb-4 inline-flex gap-1 rounded-xl bg-white p-1 shadow-card">
-        {(['pending', 'history'] as Tab[]).map((option) => (
+      {/* Primary Category Selector: Withdrawals vs Recharges */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="inline-flex gap-1.5 rounded-2xl bg-white p-1.5 shadow-card border border-ink-300/20">
           <button
-            key={option}
             type="button"
-            onClick={() => setTab(option)}
-            aria-pressed={tab === option}
-            className={`h-9 rounded-lg px-4 text-[13px] font-bold capitalize transition-colors duration-150 ease-smooth ${
-              tab === option ? 'bg-brand-500 text-white' : 'text-ink-500 hover:text-ink-900'
+            onClick={() => setTypeFilter('withdrawal')}
+            aria-pressed={typeFilter === 'withdrawal'}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150 ${
+              typeFilter === 'withdrawal'
+                ? 'bg-win-red text-white shadow-md'
+                : 'text-ink-500 hover:bg-surface-sunken hover:text-ink-900'
             }`}
           >
-            {option}
-            {option === 'pending' && pendingCount > 0 ? ` (${pendingCount})` : ''}
+            <ArrowUpRightIcon className="h-4 w-4" />
+            Withdrawal Requests
+            {counts.pendingWithdrawals > 0 && (
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+                  typeFilter === 'withdrawal' ? 'bg-white text-win-red' : 'bg-win-red text-white'
+                }`}
+              >
+                {counts.pendingWithdrawals}
+              </span>
+            )}
           </button>
-        ))}
+
+          <button
+            type="button"
+            onClick={() => setTypeFilter('recharge')}
+            aria-pressed={typeFilter === 'recharge'}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150 ${
+              typeFilter === 'recharge'
+                ? 'bg-win-green text-white shadow-md'
+                : 'text-ink-500 hover:bg-surface-sunken hover:text-ink-900'
+            }`}
+          >
+            <ArrowDownLeftIcon className="h-4 w-4" />
+            Recharge Requests
+            {counts.pendingRecharges > 0 && (
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+                  typeFilter === 'recharge' ? 'bg-white text-win-green' : 'bg-win-green text-white'
+                }`}
+              >
+                {counts.pendingRecharges}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTypeFilter('all')}
+            aria-pressed={typeFilter === 'all'}
+            className={`rounded-xl px-3 py-2 text-xs font-bold transition-all duration-150 ${
+              typeFilter === 'all'
+                ? 'bg-brand-500 text-white shadow-md'
+                : 'text-ink-500 hover:bg-surface-sunken hover:text-ink-900'
+            }`}
+          >
+            All
+          </button>
+        </div>
+
+        {/* Status Filter (Pending vs History) */}
+        <div className="inline-flex gap-1 rounded-xl bg-white p-1 shadow-card border border-ink-300/20 self-start sm:self-auto">
+          {(['pending', 'history'] as StatusTab[]).map((option) => {
+            const currentPendingCount =
+              typeFilter === 'withdrawal'
+                ? counts.pendingWithdrawals
+                : typeFilter === 'recharge'
+                ? counts.pendingRecharges
+                : counts.totalPending;
+
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setStatusFilter(option)}
+                aria-pressed={statusFilter === option}
+                className={`h-8 rounded-lg px-3.5 text-xs font-bold capitalize transition-all duration-150 ${
+                  statusFilter === option
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'text-ink-500 hover:text-ink-900'
+                }`}
+              >
+                {option}
+                {option === 'pending' && currentPendingCount > 0 ? ` (${currentPendingCount})` : ''}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <section className="overflow-hidden rounded-2xl bg-white shadow-card">
@@ -220,7 +306,9 @@ export function AdminRequests() {
           </ul>
         ) : (
           <p className="px-5 py-14 text-center text-sm text-ink-500">
-            {tab === 'pending' ? 'No requests waiting for review.' : 'No reviewed requests yet.'}
+            {statusFilter === 'pending'
+              ? `No pending ${typeFilter === 'all' ? '' : typeFilter + ' '}requests waiting for review.`
+              : `No ${typeFilter === 'all' ? '' : typeFilter + ' '}request history found.`}
           </p>
         )}
       </section>
