@@ -50,12 +50,12 @@ export function AdminSettings() {
         
         <div className="grid gap-4 sm:grid-cols-3">
           <TextField
-            label="Points per 1 USDT"
+            label="Coins per 1 USDT"
             type="number"
             min={1}
             value={rate}
             onChange={(event) => setRate(event.target.value)}
-            hint="1 USDT = 10 points by default." />
+            hint="1 USDT = 100 coins by default." />
           
           <TextField
             label="Minimum recharge (USDT)"
@@ -65,7 +65,7 @@ export function AdminSettings() {
             onChange={(event) => setMinRecharge(event.target.value)} />
           
           <TextField
-            label="Minimum stake (points)"
+            label="Minimum stake (coins)"
             type="number"
             min={1}
             value={minStake}

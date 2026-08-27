@@ -45,7 +45,7 @@ export function AdminRequests() {
         </h1>
         <p className="mt-1 text-sm text-ink-500">
           Approving a recharge credits the player instantly. Rejecting a withdrawal returns the
-          points to their balance. Every player request lands here in real time.
+          coins to their balance. Every player request lands here in real time.
         </p>
       </header>
 

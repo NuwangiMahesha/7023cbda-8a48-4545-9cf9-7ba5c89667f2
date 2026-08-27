@@ -474,18 +474,21 @@ export async function getSettings(): Promise<PlatformSettings | null> {
 
   if (error && error.code !== 'PGRST116') throw new Error(error.message);
 
-  return data
-    ? {
-        houseMargin: Number(data.house_margin || 0.18),
-        randomness: Number(data.randomness || 0.45),
-        forcedDigit: data.forced_digit,
-        minStake: Number(data.min_stake || 10),
-        usdtAddress: data.usdt_trc20_address || '',
-        pointsPerUsdt: Number(data.points_per_usdt || 10),
-        minRechargeUsdt: Number(data.min_recharge_usdt || 10),
-        maintenance: data.maintenance || false,
-      }
-    : null;
+  if (!data) return null;
+
+  const rawRate = Number(data.points_per_usdt);
+  const pointsPerUsdt = (!rawRate || rawRate === 10) ? 100 : rawRate;
+
+  return {
+    houseMargin: Number(data.house_margin || 0.18),
+    randomness: Number(data.randomness || 0.45),
+    forcedDigit: data.forced_digit,
+    minStake: Number(data.min_stake || 10),
+    usdtAddress: data.usdt_trc20_address || '',
+    pointsPerUsdt,
+    minRechargeUsdt: Number(data.min_recharge_usdt || 10),
+    maintenance: data.maintenance || false,
+  };
 }
 
 /** Subscribe to settings changes */
@@ -529,6 +532,9 @@ export async function updateSettings(
   if (patch.minStake !== undefined) updateData.min_stake = patch.minStake;
   if (patch.houseMargin !== undefined) updateData.house_margin = patch.houseMargin;
   if (patch.randomness !== undefined) updateData.randomness = patch.randomness;
+  if (patch.pointsPerUsdt !== undefined) updateData.points_per_usdt = patch.pointsPerUsdt;
+  if (patch.usdtAddress !== undefined) updateData.usdt_trc20_address = patch.usdtAddress;
+  if (patch.minRechargeUsdt !== undefined) updateData.min_recharge_usdt = patch.minRechargeUsdt;
 
   const { error } = await supabase
     .from('settings')
@@ -556,13 +562,16 @@ function mapUser(data: any): User {
 }
 
 function mapSettings(data: any, defaults: PlatformSettings): PlatformSettings {
+  const rawRate = data.points_per_usdt !== undefined ? Number(data.points_per_usdt) : defaults.pointsPerUsdt;
+  const pointsPerUsdt = (!rawRate || rawRate === 10) ? 100 : rawRate;
+
   return {
     houseMargin: Number(data.house_margin ?? defaults.houseMargin),
     randomness: Number(data.randomness ?? defaults.randomness),
     forcedDigit: data.forced_digit ?? defaults.forcedDigit,
     minStake: Number(data.min_stake ?? defaults.minStake),
     usdtAddress: data.usdt_trc20_address ?? defaults.usdtAddress,
-    pointsPerUsdt: Number(data.points_per_usdt ?? defaults.pointsPerUsdt),
+    pointsPerUsdt,
     minRechargeUsdt: Number(data.min_recharge_usdt ?? defaults.minRechargeUsdt),
     maintenance: data.maintenance ?? defaults.maintenance,
   };

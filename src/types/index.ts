@@ -101,13 +101,13 @@ export interface OddsConfig {
   randomness: number;
   /** Admin override for the next settled period. */
   forcedDigit: number | null;
-  /** Minimum accepted stake, in points. */
+  /** Minimum accepted stake, in coins. */
   minStake: number;
 }
 
 export interface PlatformSettings extends OddsConfig {
   usdtAddress: string;
-  /** Points credited per 1 USDT received. */
+  /** Coins credited per 1 USDT received. */
   pointsPerUsdt: number;
   /** Minimum recharge, in USDT. */
   minRechargeUsdt: number;

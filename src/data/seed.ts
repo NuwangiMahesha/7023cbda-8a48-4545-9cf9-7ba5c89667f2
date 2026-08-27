@@ -10,7 +10,7 @@ export const defaultSettings: PlatformSettings = {
   forcedDigit: null,
   minStake: 10,
   usdtAddress: 'TVvMrooDma21L1FcQfFUtFJG1wFCwz9niX',
-  pointsPerUsdt: 10,
+  pointsPerUsdt: 100,
   minRechargeUsdt: 10,
   maintenance: false
 };
