@@ -41,7 +41,9 @@ export function TextField({
         <div className="absolute inset-y-0 right-1.5 flex items-center">{adornment}</div> :
         null}
       </div>
-      {hint ? <p className="mt-1.5 text-xs text-ink-500">{hint}</p> : null}
+      {hint ? (
+        <p className="mt-1.5 text-xs font-semibold text-amber-600">{hint}</p>
+      ) : null}
     </div>);
 
 }

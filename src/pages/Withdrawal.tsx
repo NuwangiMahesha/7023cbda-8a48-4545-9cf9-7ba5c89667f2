@@ -67,10 +67,10 @@ export function Withdrawal() {
               label="Amount (coins)"
               type="number"
               inputMode="numeric"
-              min={settings.minStake}
+              min={1000}
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
-              hint={`Minimum ${settings.minStake} coins · 1 USDT = ${settings.pointsPerUsdt} coins`}
+              hint={`Minimum 1000 coins · 1 USDT = ${settings.pointsPerUsdt} coins`}
               required />
             
             <div className="flex items-center justify-between rounded-xl bg-surface-sunken px-4 py-3">

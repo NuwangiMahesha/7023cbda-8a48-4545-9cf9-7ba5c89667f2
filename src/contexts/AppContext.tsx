@@ -584,8 +584,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const requestWithdrawal = useCallback<AppContextValue['requestWithdrawal']>(
     async (amount, address) => {
       if (!user || !firebaseUid) return { ok: false, message: 'Sign in first.' };
-      if (!Number.isFinite(amount) || amount < settings.minStake) {
-        return { ok: false, message: `Minimum withdrawal is ${settings.minStake} coins.` };
+      if (!Number.isFinite(amount) || amount < 1000) {
+        return { ok: false, message: 'Minimum withdrawal is 1000 coins.' };
       }
       if (amount > user.balance) return { ok: false, message: 'Amount exceeds your balance.' };
       const trimmed = address.trim();
