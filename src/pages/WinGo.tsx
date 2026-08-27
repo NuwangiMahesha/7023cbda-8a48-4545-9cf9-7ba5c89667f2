@@ -92,33 +92,77 @@ export function WinGo() {
     return (
       <>
         <TopBar />
-        <main className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 pb-16 pt-8 gap-6">
-          <div className="text-center mb-2">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-500 mb-1">Win Go</p>
-            <h1 className="text-2xl font-extrabold text-ink-900">Select Game Type</h1>
-            <p className="mt-1 text-sm text-ink-400">Choose how long each round lasts before betting starts</p>
+        <main className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 pb-16 pt-8 bg-white">
+
+          {/* Header */}
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-400 bg-amber-50 px-4 py-1.5 mb-4">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-amber-600">Win Go · Live</span>
+            </div>
+            <h1 className="text-2xl font-black text-ink-900">Select Game Type</h1>
+            <p className="mt-1.5 text-sm text-ink-400">Choose how fast you want to play</p>
           </div>
 
-          <div className="w-full max-w-sm flex flex-col gap-4">
+          {/* Cards */}
+          <div className="w-full max-w-sm flex flex-col gap-5">
             {ROUND_DURATIONS.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => setDuration(option)}
-                className="flex items-center justify-between rounded-2xl bg-white border border-ink-300/20 shadow-card px-6 py-5 text-left transition-all duration-150 ease-smooth hover:shadow-lg hover:border-amber-400/60 active:scale-[0.98]"
+                className="group relative flex items-center gap-4 rounded-2xl bg-white px-5 py-4 text-left active:scale-[0.97] transition-all duration-150"
+                style={{
+                  border: '2px solid #f59e0b',
+                  outline: '3px solid #fde68a',
+                  outlineOffset: '1px',
+                  boxShadow: '0 4px 20px rgba(245,158,11,0.15)',
+                }}
               >
-                <div>
-                  <p className="text-lg font-extrabold text-ink-900">Win Go {durationLabel(option)}</p>
-                  <p className="text-xs text-ink-400 mt-0.5 tabular-nums">
-                    Next draw in {formatCountdown(secondsRemaining(now, option))}
+                {/* Black rectangle badge with gold number */}
+                <div
+                  className="flex-shrink-0 flex flex-col items-center justify-center rounded-xl"
+                  style={{
+                    width: 60,
+                    height: 60,
+                    background: '#0f172a',
+                    border: '2px solid #f59e0b',
+                  }}
+                >
+                  <span
+                    className="text-3xl font-black leading-none tabular-nums"
+                    style={{ color: '#f59e0b' }}
+                  >
+                    {option}
+                  </span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#fbbf24' }}>
+                    MIN
+                  </span>
+                </div>
+
+                {/* Labels */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-extrabold text-ink-900">Win Go {durationLabel(option)}</p>
+                  <p className="text-xs text-ink-400 mt-0.5">
+                    {option === 1 ? 'Fast rounds · High action' : 'Longer rounds · Steady play'}
                   </p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-md">
-                  <span className="text-lg font-black text-white">{option}'</span>
+
+                {/* Countdown */}
+                <div
+                  className="flex-shrink-0 rounded-xl px-3 py-2 text-right"
+                  style={{ background: '#0f172a', border: '1.5px solid #f59e0b' }}
+                >
+                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#fbbf24' }}>Next draw</p>
+                  <p className="text-sm font-black tabular-nums" style={{ color: '#f59e0b' }}>
+                    {formatCountdown(secondsRemaining(now, option))}
+                  </p>
                 </div>
               </button>
             ))}
           </div>
+
+          <p className="mt-8 text-xs text-ink-400 text-center">Tap a card to enter the game</p>
         </main>
       </>
     );
