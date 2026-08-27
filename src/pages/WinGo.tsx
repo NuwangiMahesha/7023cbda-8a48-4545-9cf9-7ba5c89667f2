@@ -30,7 +30,7 @@ const digitStyles: Record<string, string> = {
 
 export function WinGo() {
   const { now, rounds, bets, user, settings } = useApp();
-  const [duration, setDuration] = useState<RoundDuration>(1);
+  const [duration, setDuration] = useState<RoundDuration | null>(null);
   const [mode, setMode] = useState<GameMode>('Parity');
   const [selection, setSelection] = useState<BetSelection | null>(null);
   const [showRules, setShowRules] = useState(false);
@@ -40,10 +40,10 @@ export function WinGo() {
   const [recordPage, setRecordPage] = useState(1);
 
   const periodId = useMemo(
-    () => periodIdFor(new Date(now), mode, duration),
+    () => duration != null ? periodIdFor(new Date(now), mode, duration) : '',
     [now, mode, duration]
   );
-  const remaining = secondsRemaining(now, duration);
+  const remaining = duration != null ? secondsRemaining(now, duration) : 0;
   const lockWindow = duration === 1 ? 10 : 30;
   const locked = remaining <= lockWindow;
   const disabled = locked || settings.maintenance;
@@ -87,36 +87,63 @@ export function WinGo() {
     return filteredBets.slice(start, start + ordersPerPage);
   }, [filteredBets, orderPage]);
 
+  // ── If no game type has been chosen yet, show only the selection screen ──
+  if (duration === null) {
+    return (
+      <>
+        <TopBar />
+        <main className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 pb-16 pt-8 gap-6">
+          <div className="text-center mb-2">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-500 mb-1">Win Go</p>
+            <h1 className="text-2xl font-extrabold text-ink-900">Select Game Type</h1>
+            <p className="mt-1 text-sm text-ink-400">Choose how long each round lasts before betting starts</p>
+          </div>
+
+          <div className="w-full max-w-sm flex flex-col gap-4">
+            {ROUND_DURATIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setDuration(option)}
+                className="flex items-center justify-between rounded-2xl bg-white border border-ink-300/20 shadow-card px-6 py-5 text-left transition-all duration-150 ease-smooth hover:shadow-lg hover:border-amber-400/60 active:scale-[0.98]"
+              >
+                <div>
+                  <p className="text-lg font-extrabold text-ink-900">Win Go {durationLabel(option)}</p>
+                  <p className="text-xs text-ink-400 mt-0.5 tabular-nums">
+                    Next draw in {formatCountdown(secondsRemaining(now, option))}
+                  </p>
+                </div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-md">
+                  <span className="text-lg font-black text-white">{option}'</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
       <TopBar />
       <main className="flex-1 overflow-y-auto px-3 pb-8 pt-3">
-        <div
-          role="group"
-          aria-label="Draw interval"
-          className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-1.5 shadow-card border border-ink-300/20">
-          {ROUND_DURATIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setDuration(option)}
-              aria-pressed={duration === option}
-              className={`flex h-12 flex-col items-center justify-center rounded-xl text-sm font-bold transition-all duration-150 ease-smooth ${
-                duration === option
-                  ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500 text-slate-950 shadow-md'
-                  : 'text-ink-500 hover:bg-surface-sunken'
-              }`}
-            >
-              Win Go {durationLabel(option)}
-              <span
-                className={`text-[11px] font-bold tabular-nums ${
-                  duration === option ? 'text-slate-900/80' : 'text-ink-400'
-                }`}
-              >
-                {formatCountdown(secondsRemaining(now, option))}
-              </span>
-            </button>
-          ))}
+        {/* Back button + selected game type label */}
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            type="button"
+            onClick={() => setDuration(null)}
+            aria-label="Back to game type selection"
+            className="flex items-center justify-center h-9 w-9 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-500 shadow-md text-white active:scale-95 transition-all duration-150 hover:brightness-110"
+          >
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+          <div className="flex-1 rounded-xl bg-white border border-ink-300/20 shadow-sm px-4 py-2 flex items-center justify-between">
+            <span className="text-sm font-extrabold text-ink-900">Win Go {durationLabel(duration!)}</span>
+            <span className="text-xs font-semibold text-amber-600 tabular-nums">
+              {formatCountdown(secondsRemaining(now, duration!))}
+            </span>
+          </div>
         </div>
 
         <section
@@ -125,7 +152,7 @@ export function WinGo() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-400">
-                Period · Win Go {durationLabel(duration)}
+                Period · Win Go {durationLabel(duration!)}
               </p>
               <p className="font-display text-xl font-extrabold tabular-nums tracking-wide text-white">{periodId}</p>
             </div>
@@ -409,7 +436,7 @@ export function WinGo() {
 
       <BetSheet
         mode={mode}
-        duration={duration}
+        duration={duration!}
         periodId={periodId}
         selection={selection}
         onClose={() => setSelection(null)}
