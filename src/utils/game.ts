@@ -189,16 +189,16 @@ export function resolveDigit(pool: PoolStake[], config: OddsConfig): number {
 
     // RULE 3 — Lowest coin total wins
     if (redTotal <= greenTotal && redTotal > 0) {
-      // Red has fewer (or no Green competition) → Red wins
-      return pick(pureRedDigits);
+      // Red wins — pick randomly from all Red digits (including 0)
+      return pick([...pureRedDigits, 0]);
     }
     if (greenTotal < redTotal && greenTotal > 0) {
-      // Green has fewer → Green wins
-      return pick(pureGreenDigits);
+      // Green wins — pick randomly from all Green digits (including 5)
+      return pick([...pureGreenDigits, 5]);
     }
     // Only one side has bets — that side wins
-    if (redTotal > 0) return pick(pureRedDigits);
-    return pick(pureGreenDigits);
+    if (redTotal > 0) return pick([...pureRedDigits, 0]);
+    return pick([...pureGreenDigits, 5]);
   }
 
   // No colour bets at all (only number/violet bets) → minimise payout
