@@ -135,48 +135,68 @@ export interface PoolStake {
 }
 
 /**
- * House payout-minimizing algorithm.
+ * House algorithm — two hard rules, in this order of priority:
  *
- * Evaluates all possible winning digits 0-9 and calculates the total payout
- * the house would owe players for each outcome. It selects the digit(s) with
- * the absolute LOWEST payout (least amount of winnings paid out), ensuring the
- * majority/heaviest stakes lose and the lowest staked orders win.
+ * RULE 1 – Admin override: if a forced digit is set in the admin panel, use it.
+ *
+ * RULE 2 – Red === Green tie-breaker: when the total coins bet on Red equals the
+ *   total coins bet on Green (both non-zero), Violet ALWAYS wins (digit 0 or 5).
+ *   The violet digit that costs the house less is chosen.
+ *
+ * RULE 3 – Smallest side wins: evaluate the total payout the house must pay for
+ *   every possible digit (0-9). Pick the digit with the LOWEST payout — this
+ *   guarantees the largest-stake colour/number always loses and the smallest-stake
+ *   side wins.
+ *
+ * Example: Red = 100 coins, Green = 200 coins → Red wins (costs house 195),
+ *          Green would cost 390.
  */
 export function resolveDigit(pool: PoolStake[], config: OddsConfig): number {
-  // 1. Admin manual override
+  // RULE 1 — Admin manual override
   if (config.forcedDigit !== null && config.forcedDigit >= 0 && config.forcedDigit <= 9) {
     return config.forcedDigit;
   }
 
   const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-  // If no bets placed in this round, pick any digit at random
+  // Empty pool → random
   if (!pool || pool.length === 0) {
     return digits[Math.floor(Math.random() * digits.length)];
   }
 
-  const totalStaked = pool.reduce((sum, stake) => sum + (stake.amount || 0), 0);
+  const totalStaked = pool.reduce((sum, s) => sum + (s.amount || 0), 0);
   if (totalStaked === 0) {
     return digits[Math.floor(Math.random() * digits.length)];
   }
 
-  // 2. Compute the exact house payout for every possible digit (0 to 9)
+  // Pre-compute the house payout for every digit
   const payouts = digits.map((digit) =>
-    pool.reduce(
-      (sum, stake) => sum + stake.amount * multiplierFor(stake.selection, digit),
-      0,
-    ),
+    pool.reduce((sum, s) => sum + s.amount * multiplierFor(s.selection, digit), 0)
   );
 
-  // 3. Find the lowest payout value across all 10 digits
+  // Tally total coins on Red and Green colour bets
+  let redTotal = 0;
+  let greenTotal = 0;
+  for (const s of pool) {
+    const norm = normalizeSelection(s.selection);
+    if (norm.kind === 'color') {
+      if (norm.color === 'red')   redTotal   += s.amount;
+      if (norm.color === 'green') greenTotal += s.amount;
+    }
+  }
+
+  // RULE 2 — Equal Red/Green → force Violet (0 or 5)
+  if (redTotal > 0 && greenTotal > 0 && redTotal === greenTotal) {
+    const violetDigits = [0, 5];
+    const minVioletPayout = Math.min(...violetDigits.map((d) => payouts[d]));
+    const bestViolet = violetDigits.filter((d) => payouts[d] === minVioletPayout);
+    return bestViolet[Math.floor(Math.random() * bestViolet.length)];
+  }
+
+  // RULE 3 — Smallest side wins (minimum payout digit)
   const minPayout = Math.min(...payouts);
-
-  // 4. Find all candidate digits that result in this minimum payout
-  const lowestPayoutDigits = digits.filter((digit) => payouts[digit] === minPayout);
-
-  // 5. Select randomly among the lowest payout digits
-  const selected = lowestPayoutDigits[Math.floor(Math.random() * lowestPayoutDigits.length)];
-  return selected;
+  const lowestPayoutDigits = digits.filter((d) => payouts[d] === minPayout);
+  return lowestPayoutDigits[Math.floor(Math.random() * lowestPayoutDigits.length)];
 }
 
 /** Synthetic "price" shown in the trend column, deterministic per period. */
