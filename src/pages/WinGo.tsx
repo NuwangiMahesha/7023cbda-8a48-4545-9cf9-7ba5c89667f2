@@ -29,7 +29,7 @@ const digitStyles: Record<string, string> = {
 };
 
 export function WinGo() {
-  const { now, rounds, bets, user, settings } = useApp();
+  const { now, rounds, roundsLoaded, bets, user, settings } = useApp();
   const [duration, setDuration] = useState<RoundDuration | null>(null);
   const [mode, setMode] = useState<GameMode>('Parity');
   const [selection, setSelection] = useState<BetSelection | null>(null);
@@ -348,7 +348,7 @@ export function WinGo() {
                 ))}
               </div>
 
-              <ResultsTable rounds={paginatedRecords} />
+              <ResultsTable rounds={paginatedRecords} loading={!roundsLoaded} />
 
               {/* Records Pagination */}
               {totalRecordPages > 1 && (

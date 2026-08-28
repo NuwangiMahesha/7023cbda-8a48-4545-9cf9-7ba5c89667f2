@@ -86,6 +86,7 @@ interface AppContextValue {
   transactions: Transaction[];
   bets: Bet[];
   rounds: Round[];
+  roundsLoaded: boolean;
   referrals: Referral[];
   authLoading: boolean;
   login: (email: string, password: string) => Promise<ActionResult>;
@@ -115,31 +116,6 @@ interface AppContextValue {
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
-
-function seedRounds(): Round[] {
-  const out: Round[] = [];
-  const base = Date.now();
-  ROUND_DURATIONS.forEach((duration) => {
-    GAME_MODES.forEach((mode) => {
-      for (let i = 12; i >= 1; i -= 1) {
-        const block  = blockIndexFor(base, duration) - i;
-        const date   = blockStart(block, duration);
-        const digit  = Math.floor(Math.random() * 10);
-        const periodId = periodIdFor(date, mode, duration);
-        out.push({
-          periodId,
-          mode,
-          duration,
-          digit,
-          colors: colorsForDigit(digit),
-          price:  priceForPeriod(periodId, digit),
-          settledAt: date.getTime(),
-        });
-      }
-    });
-  });
-  return out.sort((a, b) => b.settledAt - a.settledAt);
-}
 
 /* ─────────────────────────────── provider ────────────────────────────────── */
 
@@ -172,7 +148,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers]             = useState<User[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bets, setBets]               = useState<Bet[]>([]);
-  const [rounds, setRounds]           = useState<Round[]>(seedRounds());
+  // Start empty — real rounds arrive from Supabase in ~500ms.
+  // Never seed fake random digits: they flash and change when real DB data arrives.
+  const [rounds, setRounds]           = useState<Round[]>([]);
+  const [roundsLoaded, setRoundsLoaded] = useState(false);
   const [referrals]                   = useState<Referral[]>(seedReferrals);
   const [settings, setSettings]       = useState<PlatformSettings>(defaultSettings);
 
@@ -235,9 +214,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, []);
 
-  // Rounds
+  // Rounds — DB is the only truth. No fake seeds = no flash.
   useEffect(() => {
-    const unsub = subscribeRounds((r) => setRounds(r));
+    const unsub = subscribeRounds((r) => {
+      setRounds(r);
+      setRoundsLoaded(true);
+    });
     return unsub;
   }, []);
 
@@ -740,6 +722,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       transactions,
       bets,
       rounds,
+      roundsLoaded,
       referrals,
       authLoading: authLoading || !appReady,
       login,
