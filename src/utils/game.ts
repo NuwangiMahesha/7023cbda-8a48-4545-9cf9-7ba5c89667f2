@@ -135,21 +135,20 @@ export interface PoolStake {
 }
 
 /**
- * House algorithm — two hard rules, in this order of priority:
+ * Winning digit algorithm — three rules in priority order:
  *
- * RULE 1 – Admin override: if a forced digit is set in the admin panel, use it.
+ * RULE 1 – Admin override.
  *
- * RULE 2 – Red === Green tie-breaker: when the total coins bet on Red equals the
- *   total coins bet on Green (both non-zero), Violet ALWAYS wins (digit 0 or 5).
- *   The violet digit that costs the house less is chosen.
+ * RULE 2 – Red === Green tie-breaker: when the TOTAL coins bet on Red equals
+ *   the total coins bet on Green (both non-zero), Violet ALWAYS wins (0 or 5).
  *
- * RULE 3 – Smallest side wins: evaluate the total payout the house must pay for
- *   every possible digit (0-9). Pick the digit with the LOWEST payout — this
- *   guarantees the largest-stake colour/number always loses and the smallest-stake
- *   side wins.
+ * RULE 3 – Lowest coin-total side wins: compare total coins on Red vs Green
+ *   directly. Whichever colour has FEWER coins wins.
+ *   Example: Red = 100 coins, Green = 200 coins → Red wins.
+ *   Example: Red = 200 coins, Green = 100 coins → Green wins.
  *
- * Example: Red = 100 coins, Green = 200 coins → Red wins (costs house 195),
- *          Green would cost 390.
+ * If only number/violet bets exist (no colour bets), falls back to the
+ * payout-minimising algorithm so those bets are still settled fairly.
  */
 export function resolveDigit(pool: PoolStake[], config: OddsConfig): number {
   // RULE 1 — Admin manual override
@@ -158,21 +157,13 @@ export function resolveDigit(pool: PoolStake[], config: OddsConfig): number {
   }
 
   const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const pick = (arr: number[]) => arr[Math.floor(Math.random() * arr.length)];
 
   // Empty pool → random
-  if (!pool || pool.length === 0) {
-    return digits[Math.floor(Math.random() * digits.length)];
-  }
+  if (!pool || pool.length === 0) return pick(digits);
 
   const totalStaked = pool.reduce((sum, s) => sum + (s.amount || 0), 0);
-  if (totalStaked === 0) {
-    return digits[Math.floor(Math.random() * digits.length)];
-  }
-
-  // Pre-compute the house payout for every digit
-  const payouts = digits.map((digit) =>
-    pool.reduce((sum, s) => sum + s.amount * multiplierFor(s.selection, digit), 0)
-  );
+  if (totalStaked === 0) return pick(digits);
 
   // Tally total coins on Red and Green colour bets
   let redTotal = 0;
@@ -185,18 +176,38 @@ export function resolveDigit(pool: PoolStake[], config: OddsConfig): number {
     }
   }
 
-  // RULE 2 — Equal Red/Green → force Violet (0 or 5)
-  if (redTotal > 0 && greenTotal > 0 && redTotal === greenTotal) {
-    const violetDigits = [0, 5];
-    const minVioletPayout = Math.min(...violetDigits.map((d) => payouts[d]));
-    const bestViolet = violetDigits.filter((d) => payouts[d] === minVioletPayout);
-    return bestViolet[Math.floor(Math.random() * bestViolet.length)];
+  // Digit sets
+  const pureRedDigits   = [2, 4, 6, 8]; // pure Red digits
+  const pureGreenDigits = [1, 3, 7, 9]; // pure Green digits
+  const violetDigits    = [0, 5];       // Violet digits
+
+  if (redTotal > 0 || greenTotal > 0) {
+    // RULE 2 — Equal Red/Green → Violet wins
+    if (redTotal > 0 && greenTotal > 0 && redTotal === greenTotal) {
+      return pick(violetDigits);
+    }
+
+    // RULE 3 — Lowest coin total wins
+    if (redTotal <= greenTotal && redTotal > 0) {
+      // Red has fewer (or no Green competition) → Red wins
+      return pick(pureRedDigits);
+    }
+    if (greenTotal < redTotal && greenTotal > 0) {
+      // Green has fewer → Green wins
+      return pick(pureGreenDigits);
+    }
+    // Only one side has bets — that side wins
+    if (redTotal > 0) return pick(pureRedDigits);
+    return pick(pureGreenDigits);
   }
 
-  // RULE 3 — Smallest side wins (minimum payout digit)
+  // No colour bets at all (only number/violet bets) → minimise payout
+  const payouts = digits.map((digit) =>
+    pool.reduce((sum, s) => sum + s.amount * multiplierFor(s.selection, digit), 0)
+  );
   const minPayout = Math.min(...payouts);
   const lowestPayoutDigits = digits.filter((d) => payouts[d] === minPayout);
-  return lowestPayoutDigits[Math.floor(Math.random() * lowestPayoutDigits.length)];
+  return pick(lowestPayoutDigits);
 }
 
 /** Synthetic "price" shown in the trend column, deterministic per period. */
