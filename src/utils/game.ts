@@ -59,21 +59,21 @@ export function multiplierFor(selection: BetSelection | unknown, digit: number):
   const norm = normalizeSelection(selection);
   const colors = colorsForDigit(digit);
   if (norm.kind === 'number') {
-    return norm.digit === digit ? 9 : 0;
+    return norm.digit === digit ? 4.5 : 0;
   }
   if (norm.color === 'violet') {
     return colors.includes('violet') ? 4.5 : 0;
   }
   if (!colors.includes(norm.color)) return 0;
   // A violet-carrying digit pays the base colour at a reduced rate.
-  return colors.includes('violet') ? 1.5 : 2;
+  return colors.includes('violet') ? 1.45 : 1.95;
 }
 
 /** Advertised multiplier shown on the betting buttons, before settlement. */
 export function displayMultiplier(selection: BetSelection | unknown): number {
   const norm = normalizeSelection(selection);
-  if (norm.kind === 'number') return 9;
-  return norm.color === 'violet' ? 4.5 : 2;
+  if (norm.kind === 'number') return 4.5;
+  return norm.color === 'violet' ? 4.5 : 1.95;
 }
 
 export function selectionLabel(selection: BetSelection | unknown): string {
