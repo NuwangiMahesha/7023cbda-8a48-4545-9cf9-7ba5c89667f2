@@ -204,10 +204,6 @@ export function resolveDigit(pool: PoolStake[], config: OddsConfig): number {
     bestDigits = bestDigits.filter(d => d === 0 || d === 5);
     // Fallback if numbers skewed it so 0/5 aren't in bestDigits anymore
     if (bestDigits.length === 0) bestDigits = [0, 5];
-  } else {
-    // If not a tie, we prefer PURE colors (1,2,3,4,6,7,8,9) to avoid confusing users with Violet
-    const pureBest = bestDigits.filter(d => d !== 0 && d !== 5);
-    if (pureBest.length > 0) bestDigits = pureBest;
   }
 
   return pick(bestDigits);
