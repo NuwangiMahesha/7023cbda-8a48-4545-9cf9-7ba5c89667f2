@@ -165,49 +165,52 @@ export function resolveDigit(pool: PoolStake[], config: OddsConfig): number {
   const totalStaked = pool.reduce((sum, s) => sum + (s.amount || 0), 0);
   if (totalStaked === 0) return pick(digits);
 
-  // Tally total coins on Red and Green colour bets
+  // 1. Calculate the true payout for every digit
+  const payouts = digits.map((digit) =>
+    pool.reduce((sum, s) => sum + s.amount * multiplierFor(s.selection, digit), 0)
+  );
+
+  // 2. Calculate a "simulated" payout where Red/Green bets are always treated as 1.95x
+  // This prevents the algorithm from always picking Violet (0/5) just to save the 0.5x margin.
+  const simulatedPayouts = digits.map((digit) =>
+    pool.reduce((sum, s) => {
+      const norm = normalizeSelection(s.selection);
+      let mult = multiplierFor(s.selection, digit);
+      // If it's a color bet and it won on a violet digit, pretend it pays 1.95
+      if (norm.kind === 'color' && ['red', 'green'].includes(norm.color) && mult === 1.45) {
+        mult = 1.95;
+      }
+      return sum + s.amount * mult;
+    }, 0)
+  );
+
+  // 3. Find the lowest simulated payout
+  const minSimulated = Math.min(...simulatedPayouts);
+  let bestDigits = digits.filter((d) => simulatedPayouts[d] === minSimulated);
+
+  // 4. Tie-breaker rule for Red === Green exactly (e.g. 100 vs 100 on colors)
+  // If simulated payouts are equal across Red and Green digits, and there are active color bets,
+  // we strictly force Violet (0 or 5).
   let redTotal = 0;
   let greenTotal = 0;
   for (const s of pool) {
     const norm = normalizeSelection(s.selection);
     if (norm.kind === 'color') {
-      if (norm.color === 'red')   redTotal   += s.amount;
+      if (norm.color === 'red') redTotal += s.amount;
       if (norm.color === 'green') greenTotal += s.amount;
     }
   }
-
-  // Digit sets
-  const pureRedDigits   = [2, 4, 6, 8]; // pure Red digits
-  const pureGreenDigits = [1, 3, 7, 9]; // pure Green digits
-  const violetDigits    = [0, 5];       // Violet digits
-
-  if (redTotal > 0 || greenTotal > 0) {
-    // RULE 2 — Equal Red/Green → Violet wins
-    if (redTotal > 0 && greenTotal > 0 && redTotal === greenTotal) {
-      return pick(violetDigits);
-    }
-
-    // RULE 3 — Lowest coin total wins
-    if (redTotal <= greenTotal && redTotal > 0) {
-      // Red wins — pick randomly from all Red digits (including 0)
-      return pick([...pureRedDigits, 0]);
-    }
-    if (greenTotal < redTotal && greenTotal > 0) {
-      // Green wins — pick randomly from all Green digits (including 5)
-      return pick([...pureGreenDigits, 5]);
-    }
-    // Only one side has bets — that side wins
-    if (redTotal > 0) return pick([...pureRedDigits, 0]);
-    return pick([...pureGreenDigits, 5]);
+  if (redTotal > 0 && greenTotal > 0 && redTotal === greenTotal) {
+    bestDigits = bestDigits.filter(d => d === 0 || d === 5);
+    // Fallback if numbers skewed it so 0/5 aren't in bestDigits anymore
+    if (bestDigits.length === 0) bestDigits = [0, 5];
+  } else {
+    // If not a tie, we prefer PURE colors (1,2,3,4,6,7,8,9) to avoid confusing users with Violet
+    const pureBest = bestDigits.filter(d => d !== 0 && d !== 5);
+    if (pureBest.length > 0) bestDigits = pureBest;
   }
 
-  // No colour bets at all (only number/violet bets) → minimise payout
-  const payouts = digits.map((digit) =>
-    pool.reduce((sum, s) => sum + s.amount * multiplierFor(s.selection, digit), 0)
-  );
-  const minPayout = Math.min(...payouts);
-  const lowestPayoutDigits = digits.filter((d) => payouts[d] === minPayout);
-  return pick(lowestPayoutDigits);
+  return pick(bestDigits);
 }
 
 /** Synthetic "price" shown in the trend column, deterministic per period. */
