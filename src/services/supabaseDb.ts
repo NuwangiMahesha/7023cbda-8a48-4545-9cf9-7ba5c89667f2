@@ -397,11 +397,11 @@ export async function batchUpdateBets(
 
 /* ─────────────────────────────── Rounds ────────────────────────────────── */
 
-/** Create/update a settled round */
-export async function createRound(data: Round): Promise<void> {
+/** Create a settled round (returns true if successful, false if already settled by another client) */
+export async function createRound(data: Round): Promise<boolean> {
   const { error } = await supabase
     .from('rounds')
-    .upsert(
+    .insert([
       {
         period_id: data.periodId,
         mode: data.mode,
@@ -410,11 +410,17 @@ export async function createRound(data: Round): Promise<void> {
         colors: data.colors,
         price: data.price,
         settled_at: data.settledAt,
-      },
-      { onConflict: 'period_id' },
-    );
+      }
+    ]);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.code === '23505') {
+      // Unique violation — another client already settled this period
+      return false;
+    }
+    throw new Error(error.message);
+  }
+  return true;
 }
 
 /** Subscribe to latest rounds */

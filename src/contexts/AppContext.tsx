@@ -276,9 +276,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           // Pick the digit that costs the house the LEAST (heaviest side loses)
           const digit = resolveDigit(pool, config);
-          resolvedByPeriod.set(periodId, digit);
-
-          await createRound({
+          
+          const success = await createRound({
             periodId,
             mode,
             duration,
@@ -287,6 +286,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             price: priceForPeriod(periodId, digit),
             settledAt: closedAt.getTime(),
           });
+
+          // If another client already settled this period, skip Phase 2 to prevent double-payouts
+          if (!success) {
+            resolvedByPeriod.delete(periodId);
+            continue;
+          }
+
+          resolvedByPeriod.set(periodId, digit);
         }
       }
 
