@@ -304,7 +304,7 @@ function RoundHistoryItem({ periodId, round, roundBets, users, expanded, onToggl
           {expanded ? <ChevronDownIcon className="h-4 w-4 text-ink-500" /> : <ChevronRightIcon className="h-4 w-4 text-ink-500" />}
           <div>
             <h3 className="font-semibold text-ink-900 leading-tight">Period {periodId}</h3>
-            {round && <span className="text-xs text-ink-500 font-normal">{format(new Date(round.createdAt), 'dd MMM yyyy, HH:mm')}</span>}
+            {round && round.settledAt && <span className="text-xs text-ink-500 font-normal">{format(new Date(round.settledAt), 'dd MMM yyyy, HH:mm')}</span>}
           </div>
         </div>
         
