@@ -107,6 +107,18 @@ export function AdminDashboard() {
                 <th scope="col" className="px-5 py-2 text-left font-semibold">
                   Joined
                 </th>
+                <th scope="col" className="px-5 py-2 text-left font-semibold">
+                  Last Played
+                </th>
+                <th scope="col" className="px-5 py-2 text-right font-semibold">
+                  Rounds
+                </th>
+                <th scope="col" className="px-5 py-2 text-right font-semibold">
+                  Losses
+                </th>
+                <th scope="col" className="px-5 py-2 text-right font-semibold">
+                  Wins
+                </th>
                 <th scope="col" className="px-5 py-2 text-right font-semibold">
                   Balance
                 </th>
@@ -118,28 +130,48 @@ export function AdminDashboard() {
             <tbody className="divide-y divide-ink-300/30">
               {validUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-5 py-6 text-center text-xs text-ink-500">
+                  <td colSpan={8} className="px-5 py-6 text-center text-xs text-ink-500">
                     No registered players yet
                   </td>
                 </tr>
               ) : (
-                validUsers.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-5 py-3">
-                      <span className="block font-semibold text-ink-900">{user.name || 'Player'}</span>
-                      <span className="text-xs text-ink-500">{user.email || 'No email'}</span>
-                    </td>
-                    <td className="px-5 py-3 text-ink-500">
-                      {user.createdAt ? format(new Date(user.createdAt), 'dd MMM yyyy') : 'Recent'}
-                    </td>
-                    <td className="px-5 py-3 text-right font-bold tabular-nums text-ink-900">
-                      {formatPoints(user.balance ?? 0)}
-                    </td>
-                    <td className="px-5 py-3 text-right tabular-nums text-win-gold">
-                      {formatPoints(user.bonus ?? 0)}
-                    </td>
-                  </tr>
-                ))
+                validUsers.map((user) => {
+                  const userBets = bets.filter(b => b.userId === user.id);
+                  const lastPlayed = userBets.length > 0 ? format(new Date(Math.max(...userBets.map(b => b.createdAt))), 'dd MMM yyyy') : '-';
+                  const roundsPlayed = userBets.length;
+                  const lostCoins = userBets.filter(b => b.status === 'lost').reduce((sum, b) => sum + b.amount, 0);
+                  const wonCoins = userBets.filter(b => b.status === 'won').reduce((sum, b) => sum + b.payout, 0);
+
+                  return (
+                    <tr key={user.id}>
+                      <td className="px-5 py-3">
+                        <span className="block font-semibold text-ink-900">{user.name || 'Player'}</span>
+                        <span className="text-xs text-ink-500">{user.email || 'No email'}</span>
+                      </td>
+                      <td className="px-5 py-3 text-ink-500">
+                        {user.createdAt ? format(new Date(user.createdAt), 'dd MMM yyyy') : 'Recent'}
+                      </td>
+                      <td className="px-5 py-3 text-ink-500">
+                        {lastPlayed}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums text-ink-900 font-medium">
+                        {roundsPlayed}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums text-win-red font-semibold">
+                        {lostCoins > 0 ? formatPoints(lostCoins) : '-'}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums text-win-green font-semibold">
+                        {wonCoins > 0 ? formatPoints(wonCoins) : '-'}
+                      </td>
+                      <td className="px-5 py-3 text-right font-bold tabular-nums text-ink-900">
+                        {formatPoints(user.balance ?? 0)}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums text-win-gold">
+                        {formatPoints(user.bonus ?? 0)}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
