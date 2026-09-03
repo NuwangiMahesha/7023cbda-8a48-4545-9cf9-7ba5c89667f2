@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { ChevronDownIcon, ChevronRightIcon, SearchIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
 import { ResultBall } from '../../components/game/ResultBall';
@@ -22,6 +23,7 @@ export function AdminGameControl() {
   const [mode, setMode] = useState(GAME_MODES[0]);
   const [duration, setDuration] = useState<RoundDuration>(1);
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
+  const [searchPeriod, setSearchPeriod] = useState('');
 
   const periodId = periodIdFor(new Date(now), mode, duration);
   const openBets = useMemo(
@@ -29,19 +31,23 @@ export function AdminGameControl() {
     [bets, periodId]
   );
 
-  const settledBets = useMemo(
-    () => bets.filter((bet) => bet.status !== 'pending').slice(0, 50),
-    [bets]
-  );
-
   const settledRoundsWithBets = useMemo(() => {
-    const periods = Array.from(new Set(settledBets.map(b => b.periodId)));
+    if (searchPeriod.trim()) {
+      const matchedRounds = rounds.filter(r => r.periodId.includes(searchPeriod.trim()));
+      return matchedRounds.map(round => {
+        const periodBets = bets.filter(b => b.periodId === round.periodId);
+        return { periodId: round.periodId, round, bets: periodBets };
+      });
+    }
+
+    const recentSettledBets = bets.filter((bet) => bet.status !== 'pending').slice(0, 50);
+    const periods = Array.from(new Set(recentSettledBets.map(b => b.periodId)));
     return periods.map(periodId => {
       const round = rounds.find(r => r.periodId === periodId);
-      const periodBets = settledBets.filter(b => b.periodId === periodId);
+      const periodBets = recentSettledBets.filter(b => b.periodId === periodId);
       return { periodId, round, bets: periodBets };
     });
-  }, [settledBets, rounds]);
+  }, [bets, rounds, searchPeriod]);
 
   const exposure = useMemo(() => {
     const staked = openBets.reduce((total, bet) => total + bet.amount, 0);
@@ -247,9 +253,21 @@ export function AdminGameControl() {
       </section>
 
       <section aria-label="Settled Rounds History" className="mt-4 overflow-hidden rounded-2xl bg-white shadow-card">
-        <h2 className="border-b border-ink-300/30 px-5 py-3.5 font-display text-sm font-bold uppercase tracking-[0.14em] text-ink-500">
-          Round History & Participants
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-ink-300/30 px-5 py-3.5 gap-3">
+          <h2 className="font-display text-sm font-bold uppercase tracking-[0.14em] text-ink-500">
+            Round History & Participants
+          </h2>
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-500" />
+            <input
+              type="text"
+              placeholder="Search Period ID..."
+              value={searchPeriod}
+              onChange={(e) => setSearchPeriod(e.target.value)}
+              className="w-full sm:w-64 rounded-lg border border-ink-300/30 bg-surface-sunken pl-9 pr-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+          </div>
+        </div>
         {settledRoundsWithBets.length ? (
           <div className="divide-y divide-ink-300/30">
             {settledRoundsWithBets.map(({ periodId, round, bets: roundBets }) => (
@@ -284,7 +302,10 @@ function RoundHistoryItem({ periodId, round, roundBets, users, expanded, onToggl
       >
         <div className="flex items-center gap-2">
           {expanded ? <ChevronDownIcon className="h-4 w-4 text-ink-500" /> : <ChevronRightIcon className="h-4 w-4 text-ink-500" />}
-          <h3 className="font-semibold text-ink-900">Period {periodId}</h3>
+          <div>
+            <h3 className="font-semibold text-ink-900 leading-tight">Period {periodId}</h3>
+            {round && <span className="text-xs text-ink-500 font-normal">{format(new Date(round.createdAt), 'dd MMM yyyy, HH:mm')}</span>}
+          </div>
         </div>
         
         <div className="flex items-center gap-4">
