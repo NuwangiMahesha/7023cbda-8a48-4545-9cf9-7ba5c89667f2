@@ -17,7 +17,7 @@ import {
 import { RoundDuration } from '../../types';
 
 export function AdminGameControl() {
-  const { now, bets, settings, updateSettings, rounds } = useApp();
+  const { now, bets, settings, updateSettings, rounds, users } = useApp();
   const [mode, setMode] = useState(GAME_MODES[0]);
   const [duration, setDuration] = useState<RoundDuration>(1);
 
@@ -205,12 +205,23 @@ export function AdminGameControl() {
         </h2>
         {openBets.length ?
         <ul className="divide-y divide-ink-300/30">
-            {openBets.map((bet) =>
-          <li key={bet.id} className="flex items-center justify-between px-5 py-3 text-sm">
-                <span className="font-semibold text-ink-900">{selectionLabel(bet.selection)}</span>
-                <span className="tabular-nums text-ink-700">{formatPoints(bet.amount)} coins</span>
-              </li>
-          )}
+            {openBets.map((bet) => {
+              const competitor = users.find(u => u.id === bet.userId);
+              return (
+                <li key={bet.id} className="flex items-center justify-between px-5 py-3 text-sm">
+                  <div>
+                    <span className="font-semibold text-ink-900 block">{competitor?.name || 'Unknown Player'}</span>
+                    <span className="text-xs text-ink-500">
+                      Balance: <span className="tabular-nums font-semibold">{formatPoints(competitor?.balance ?? 0)}</span> coins
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-semibold text-brand-600 block">{selectionLabel(bet.selection)}</span>
+                    <span className="tabular-nums text-ink-700 text-xs font-bold">{formatPoints(bet.amount)} coins bet</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul> :
 
         <p className="px-5 py-10 text-center text-sm text-ink-500">
