@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
 import { ResultBall } from '../../components/game/ResultBall';
@@ -251,37 +252,13 @@ export function AdminGameControl() {
         {settledRoundsWithBets.length ? (
           <div className="divide-y divide-ink-300/30">
             {settledRoundsWithBets.map(({ periodId, round, bets: roundBets }) => (
-              <div key={periodId} className="px-5 py-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-ink-900">Period {periodId}</h3>
-                  {round && (
-                    <div className="flex items-center gap-2 text-xs font-bold text-ink-500">
-                      Result: <ResultBall digit={round.digit} size="sm" />
-                    </div>
-                  )}
-                </div>
-                <ul className="space-y-2">
-                  {roundBets.map(bet => {
-                     const competitor = users.find(u => u.id === bet.userId);
-                     return (
-                       <li key={bet.id} className="flex items-center justify-between rounded-lg bg-surface-sunken px-3 py-2 text-sm">
-                         <div>
-                           <span className="font-semibold text-ink-900 block">{competitor?.name || 'Unknown Player'}</span>
-                           <span className="text-xs text-ink-500">
-                             Balance: <span className="tabular-nums font-semibold text-ink-700">{formatPoints(competitor?.balance ?? 0)}</span> coins
-                           </span>
-                         </div>
-                         <div className="text-right">
-                           <span className="font-semibold text-brand-600 block">{selectionLabel(bet.selection)}</span>
-                           <span className={`tabular-nums text-xs font-bold ${bet.status === 'won' ? 'text-win-green' : 'text-win-red'}`}>
-                             {bet.status === 'won' ? `Won: +${formatPoints(bet.payout)}` : `Lost: -${formatPoints(bet.amount)}`}
-                           </span>
-                         </div>
-                       </li>
-                     );
-                  })}
-                </ul>
-              </div>
+              <RoundHistoryItem 
+                key={periodId} 
+                periodId={periodId} 
+                round={round} 
+                roundBets={roundBets} 
+                users={users} 
+              />
             ))}
           </div>
         ) : (
@@ -290,6 +267,56 @@ export function AdminGameControl() {
           </p>
         )}
       </section>
-    </div>);
+}
 
+function RoundHistoryItem({ periodId, round, roundBets, users }: any) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="px-5 py-3">
+      <button 
+        type="button" 
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between text-left hover:opacity-80 transition-opacity"
+      >
+        <div className="flex items-center gap-2">
+          {expanded ? <ChevronDownIcon className="h-4 w-4 text-ink-500" /> : <ChevronRightIcon className="h-4 w-4 text-ink-500" />}
+          <h3 className="font-semibold text-ink-900">Period {periodId}</h3>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-semibold text-ink-500">{roundBets.length} bet{roundBets.length !== 1 ? 's' : ''}</span>
+          {round && (
+            <div className="flex items-center gap-2 text-xs font-bold text-ink-500">
+              Result: <ResultBall digit={round.digit} size="sm" />
+            </div>
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <ul className="mt-4 space-y-2">
+          {roundBets.map((bet: any) => {
+            const competitor = users.find((u: any) => u.id === bet.userId);
+            return (
+              <li key={bet.id} className="flex items-center justify-between rounded-lg bg-surface-sunken px-3 py-2 text-sm">
+                <div>
+                  <span className="font-semibold text-ink-900 block">{competitor?.name || 'Unknown Player'}</span>
+                  <span className="text-xs text-ink-500">
+                    Balance: <span className="tabular-nums font-semibold text-ink-700">{formatPoints(competitor?.balance ?? 0)}</span> coins
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="font-semibold text-brand-600 block">{selectionLabel(bet.selection)}</span>
+                  <span className={`tabular-nums text-xs font-bold ${bet.status === 'won' ? 'text-win-green' : 'text-win-red'}`}>
+                    {bet.status === 'won' ? `Won: +${formatPoints(bet.payout)}` : `Lost: -${formatPoints(bet.amount)}`}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
