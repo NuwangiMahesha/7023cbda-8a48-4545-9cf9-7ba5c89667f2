@@ -32,6 +32,15 @@ export function AdminGameControl() {
     [bets]
   );
 
+  const settledRoundsWithBets = useMemo(() => {
+    const periods = Array.from(new Set(settledBets.map(b => b.periodId)));
+    return periods.map(periodId => {
+      const round = rounds.find(r => r.periodId === periodId);
+      const periodBets = settledBets.filter(b => b.periodId === periodId);
+      return { periodId, round, bets: periodBets };
+    });
+  }, [settledBets, rounds]);
+
   const exposure = useMemo(() => {
     const staked = openBets.reduce((total, bet) => total + bet.amount, 0);
     return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => {
@@ -235,37 +244,51 @@ export function AdminGameControl() {
         }
       </section>
 
-      <section aria-label="Recent settled bets" className="mt-4 overflow-hidden rounded-2xl bg-white shadow-card">
+      <section aria-label="Settled Rounds History" className="mt-4 overflow-hidden rounded-2xl bg-white shadow-card">
         <h2 className="border-b border-ink-300/30 px-5 py-3.5 font-display text-sm font-bold uppercase tracking-[0.14em] text-ink-500">
-          Recent settled bets
+          Round History & Participants
         </h2>
-        {settledBets.length ?
-        <ul className="divide-y divide-ink-300/30">
-            {settledBets.map((bet) => {
-              const competitor = users.find(u => u.id === bet.userId);
-              return (
-                <li key={bet.id} className="flex items-center justify-between px-5 py-3 text-sm">
-                  <div>
-                    <span className="font-semibold text-ink-900 block">{competitor?.name || 'Unknown Player'}</span>
-                    <span className="text-xs text-ink-500">
-                      Period: <span className="tabular-nums font-semibold text-ink-700">{bet.periodId}</span>
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-semibold text-brand-600 block">{selectionLabel(bet.selection)}</span>
-                    <span className={`tabular-nums text-xs font-bold ${bet.status === 'won' ? 'text-win-green' : 'text-win-red'}`}>
-                      {bet.status === 'won' ? `+${formatPoints(bet.payout)}` : `-${formatPoints(bet.amount)}`}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul> :
-
-        <p className="px-5 py-10 text-center text-sm text-ink-500">
+        {settledRoundsWithBets.length ? (
+          <div className="divide-y divide-ink-300/30">
+            {settledRoundsWithBets.map(({ periodId, round, bets: roundBets }) => (
+              <div key={periodId} className="px-5 py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-ink-900">Period {periodId}</h3>
+                  {round && (
+                    <div className="flex items-center gap-2 text-xs font-bold text-ink-500">
+                      Result: <ResultBall digit={round.digit} size="sm" />
+                    </div>
+                  )}
+                </div>
+                <ul className="space-y-2">
+                  {roundBets.map(bet => {
+                     const competitor = users.find(u => u.id === bet.userId);
+                     return (
+                       <li key={bet.id} className="flex items-center justify-between rounded-lg bg-surface-sunken px-3 py-2 text-sm">
+                         <div>
+                           <span className="font-semibold text-ink-900 block">{competitor?.name || 'Unknown Player'}</span>
+                           <span className="text-xs text-ink-500">
+                             Balance: <span className="tabular-nums font-semibold text-ink-700">{formatPoints(competitor?.balance ?? 0)}</span> coins
+                           </span>
+                         </div>
+                         <div className="text-right">
+                           <span className="font-semibold text-brand-600 block">{selectionLabel(bet.selection)}</span>
+                           <span className={`tabular-nums text-xs font-bold ${bet.status === 'won' ? 'text-win-green' : 'text-win-red'}`}>
+                             {bet.status === 'won' ? `Won: +${formatPoints(bet.payout)}` : `Lost: -${formatPoints(bet.amount)}`}
+                           </span>
+                         </div>
+                       </li>
+                     );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="px-5 py-10 text-center text-sm text-ink-500">
             No recently settled bets.
           </p>
-        }
+        )}
       </section>
     </div>);
 
