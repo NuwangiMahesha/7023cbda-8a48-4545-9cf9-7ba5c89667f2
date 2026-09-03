@@ -10,6 +10,7 @@ export function AdminSettings() {
   const [minStake, setMinStake] = useState(String(settings.minStake));
   const [minRecharge, setMinRecharge] = useState(String(settings.minRechargeUsdt));
   const [rate, setRate] = useState(String(settings.pointsPerUsdt));
+  const [maintenance, setMaintenance] = useState(settings.maintenance);
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -27,6 +28,7 @@ export function AdminSettings() {
       minStake: stake,
       minRechargeUsdt: recharge,
       pointsPerUsdt: conversion,
+      maintenance,
     });
     toast.success('Platform settings saved.');
   }
@@ -76,8 +78,8 @@ export function AdminSettings() {
         <label className="flex items-center gap-3 rounded-xl bg-surface-sunken px-4 py-3">
           <input
             type="checkbox"
-            checked={settings.maintenance}
-            onChange={(event) => updateSettings({ maintenance: event.target.checked })}
+            checked={maintenance}
+            onChange={(event) => setMaintenance(event.target.checked)}
             className="h-4 w-4 accent-brand-500" />
           
           <span className="text-sm font-semibold text-ink-900">
