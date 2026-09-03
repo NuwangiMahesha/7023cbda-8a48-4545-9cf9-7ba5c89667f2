@@ -21,6 +21,7 @@ export function AdminGameControl() {
   const { now, bets, settings, updateSettings, rounds, users } = useApp();
   const [mode, setMode] = useState(GAME_MODES[0]);
   const [duration, setDuration] = useState<RoundDuration>(1);
+  const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
 
   const periodId = periodIdFor(new Date(now), mode, duration);
   const openBets = useMemo(
@@ -257,7 +258,9 @@ export function AdminGameControl() {
                 periodId={periodId} 
                 round={round} 
                 roundBets={roundBets} 
-                users={users} 
+                users={users}
+                expanded={expandedPeriod === periodId}
+                onToggle={() => setExpandedPeriod(expandedPeriod === periodId ? null : periodId)}
               />
             ))}
           </div>
@@ -271,14 +274,12 @@ export function AdminGameControl() {
   );
 }
 
-function RoundHistoryItem({ periodId, round, roundBets, users }: any) {
-  const [expanded, setExpanded] = useState(false);
-
+function RoundHistoryItem({ periodId, round, roundBets, users, expanded, onToggle }: any) {
   return (
     <div className="px-5 py-3">
       <button 
         type="button" 
-        onClick={() => setExpanded(!expanded)}
+        onClick={onToggle}
         className="flex w-full items-center justify-between text-left hover:opacity-80 transition-opacity"
       >
         <div className="flex items-center gap-2">
