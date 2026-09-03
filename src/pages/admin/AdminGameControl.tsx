@@ -27,6 +27,11 @@ export function AdminGameControl() {
     [bets, periodId]
   );
 
+  const settledBets = useMemo(
+    () => bets.filter((bet) => bet.status !== 'pending').slice(0, 50),
+    [bets]
+  );
+
   const exposure = useMemo(() => {
     const staked = openBets.reduce((total, bet) => total + bet.amount, 0);
     return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => {
@@ -226,6 +231,39 @@ export function AdminGameControl() {
 
         <p className="px-5 py-10 text-center text-sm text-ink-500">
             No open bets. {rounds.length} periods settled so far.
+          </p>
+        }
+      </section>
+
+      <section aria-label="Recent settled bets" className="mt-4 overflow-hidden rounded-2xl bg-white shadow-card">
+        <h2 className="border-b border-ink-300/30 px-5 py-3.5 font-display text-sm font-bold uppercase tracking-[0.14em] text-ink-500">
+          Recent settled bets
+        </h2>
+        {settledBets.length ?
+        <ul className="divide-y divide-ink-300/30">
+            {settledBets.map((bet) => {
+              const competitor = users.find(u => u.id === bet.userId);
+              return (
+                <li key={bet.id} className="flex items-center justify-between px-5 py-3 text-sm">
+                  <div>
+                    <span className="font-semibold text-ink-900 block">{competitor?.name || 'Unknown Player'}</span>
+                    <span className="text-xs text-ink-500">
+                      Period: <span className="tabular-nums font-semibold text-ink-700">{bet.periodId}</span>
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-semibold text-brand-600 block">{selectionLabel(bet.selection)}</span>
+                    <span className={`tabular-nums text-xs font-bold ${bet.status === 'won' ? 'text-win-green' : 'text-win-red'}`}>
+                      {bet.status === 'won' ? `+${formatPoints(bet.payout)}` : `-${formatPoints(bet.amount)}`}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul> :
+
+        <p className="px-5 py-10 text-center text-sm text-ink-500">
+            No recently settled bets.
           </p>
         }
       </section>
