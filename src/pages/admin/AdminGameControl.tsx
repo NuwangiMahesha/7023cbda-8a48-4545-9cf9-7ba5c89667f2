@@ -267,6 +267,8 @@ export function AdminGameControl() {
           </p>
         )}
       </section>
+    </div>
+  );
 }
 
 function RoundHistoryItem({ periodId, round, roundBets, users }: any) {
