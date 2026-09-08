@@ -406,7 +406,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           emailVerified: fbUser.emailVerified,
           password: '',
           balance: 0,
-          bonus: 20,
+          bonus: 0,
           promoCode,
           invitedBy: inviteCode?.trim() || undefined,
           createdAt: Date.now(),
@@ -416,7 +416,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ok: true,
           emailVerified: fbUser.emailVerified,
           message: fbUser.emailVerified
-            ? 'Account created! 20 bonus coins added to your wallet.'
+            ? 'Account created!'
             : 'Account created! Please check your email for the 6-digit verification code.',
         };
       } catch (err: unknown) {
