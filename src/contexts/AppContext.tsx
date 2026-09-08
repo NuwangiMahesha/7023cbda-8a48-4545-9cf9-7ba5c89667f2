@@ -534,6 +534,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: Date.now(),
       });
 
+      // Distribute referral commissions
+      try {
+        const rates = [0.005, 0.0025, 0.001, 0.001];
+        let currentLevel = 0;
+        let currentUser = user;
+
+        while (currentLevel < rates.length && currentUser.invitedBy) {
+          const inviter = usersRef.current.find(
+            (u) => u.promoCode && u.promoCode.toLowerCase() === currentUser.invitedBy?.toLowerCase()
+          );
+          if (!inviter) break;
+
+          const commissionAmount = Number((amount * rates[currentLevel]).toFixed(2));
+          if (commissionAmount > 0) {
+            await updateUserDoc(inviter.id, {
+              balance: Number((inviter.balance + commissionAmount).toFixed(2))
+            });
+
+            await createTransaction({
+              userId: inviter.id,
+              userName: inviter.name,
+              type: 'commission',
+              amount: commissionAmount,
+              status: 'completed',
+              method: `L${currentLevel + 1} from ${user.name}`,
+              createdAt: Date.now(),
+            });
+          }
+
+          currentUser = inviter;
+          currentLevel++;
+        }
+      } catch (err) {
+        console.error("Failed to distribute commission:", err);
+      }
+
       return { ok: true, message: `Bet placed on period ${periodId}.` };
       void betId;
     },

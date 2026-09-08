@@ -10,7 +10,8 @@ const filters: {key: TransactionType | 'all';label: string;}[] = [
 { key: 'recharge', label: 'Recharge' },
 { key: 'withdrawal', label: 'Withdraw' },
 { key: 'bet', label: 'Bets' },
-{ key: 'payout', label: 'Wins' }];
+{ key: 'payout', label: 'Wins' },
+{ key: 'commission', label: 'Commission' }];
 
 
 const credit: TransactionType[] = ['recharge', 'payout', 'commission'];
