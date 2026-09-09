@@ -24,15 +24,16 @@ export function Login() {
     event.preventDefault();
     setLoading(true);
     const result = await login(email, password);
-    setLoading(false);
-    if (result.ok) {
-      toast.success(result.message);
-      navigate('/win');
-    } else if (result.message.includes('verify your email')) {
-      setIsUnverified(true);
-    } else {
-      toast.error(result.message);
+    if (!result.ok) {
+      setLoading(false);
+      if (result.message.includes('verify your email')) {
+        setIsUnverified(true);
+      } else {
+        toast.error(result.message);
+      }
     }
+    // On success: keep loading=true and let the auth state listener
+    // update `user` in AppContext, which causes GuestOnly to redirect to /win
   }
 
   async function handleReset(event: React.FormEvent) {

@@ -188,8 +188,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!firebaseUid) {
       setUser(null);
+      setAuthLoading(false);
       return;
     }
+    // While we fetch fresh profile data, mark as loading so RequirePlayer
+    // shows a preloader instead of redirecting back to /login
+    setAuthLoading(true);
     const unsub = subscribeOwnUser(firebaseUid, (u) => {
       setUser(u);
       setAuthLoading(false);
