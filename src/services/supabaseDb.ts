@@ -91,6 +91,28 @@ export async function updateUserDoc(
   if (error) throw new Error(error.message);
 }
 
+/** Atomically increment a user's bonus by fetching fresh from DB and updating */
+export async function incrementUserBonus(uid: string, amount: number): Promise<void> {
+  // Fetch the current bonus fresh from DB to avoid stale-cache issues
+  const { data, error: fetchError } = await supabase
+    .from('users')
+    .select('bonus')
+    .eq('id', uid)
+    .single();
+
+  if (fetchError) throw new Error(fetchError.message);
+
+  const currentBonus = Number(data?.bonus ?? 0);
+  const newBonus = Number((currentBonus + amount).toFixed(2));
+
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ bonus: newBonus })
+    .eq('id', uid);
+
+  if (updateError) throw new Error(updateError.message);
+}
+
 /** Subscribe to all users (for admin) */
 export function subscribeUsers(onChange: (users: User[]) => void): () => void {
   // Initial fetch
