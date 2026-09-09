@@ -113,6 +113,35 @@ export async function incrementUserBonus(uid: string, amount: number): Promise<v
   if (updateError) throw new Error(updateError.message);
 }
 
+/** Look up a user by their promo code */
+export async function getUserByPromoCode(promoCode: string): Promise<User | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .ilike('promo_code', promoCode)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.warn('getUserByPromoCode error:', error.message);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    name: data.name,
+    email: data.email,
+    emailVerified: data.email_verified,
+    password: '',
+    balance: Number(data.balance),
+    bonus: Number(data.bonus),
+    promoCode: data.promo_code,
+    invitedBy: data.invited_by,
+    createdAt: data.created_at,
+  };
+}
+
 /** Subscribe to all users (for admin) */
 export function subscribeUsers(onChange: (users: User[]) => void): () => void {
   // Initial fetch

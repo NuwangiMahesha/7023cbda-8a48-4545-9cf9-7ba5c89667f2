@@ -50,6 +50,7 @@ import {
   createUserDoc,
   fetchPendingBetsByPeriod,
   getUserDoc,
+  getUserByPromoCode,
   incrementUserBonus,
   subscribeBets,
   subscribeOwnUser,
@@ -543,12 +544,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const rates = [0.005, 0.0025, 0.001, 0.001]; // L1=0.5%, L2=0.25%, L3=0.1%, L4=0.1%
         let currentLevel = 0;
-        let currentUser = user;
+        let currentInvitedBy: string | undefined = user.invitedBy;
 
-        while (currentLevel < rates.length && currentUser.invitedBy) {
-          const inviter = usersRef.current.find(
-            (u) => u.promoCode && u.promoCode.toLowerCase() === currentUser.invitedBy?.toLowerCase()
-          );
+        while (currentLevel < rates.length && currentInvitedBy) {
+          // Fetch inviter DIRECTLY from DB (bypasses stale cache & RLS on subscribeUsers)
+          const inviter = await getUserByPromoCode(currentInvitedBy);
           if (!inviter) break;
 
           const commissionAmount = Number((amount * rates[currentLevel]).toFixed(2));
@@ -567,7 +567,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             });
           }
 
-          currentUser = inviter;
+          currentInvitedBy = inviter.invitedBy;
           currentLevel++;
         }
       } catch (err) {
