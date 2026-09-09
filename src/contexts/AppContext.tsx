@@ -50,6 +50,7 @@ import {
   createUserDoc,
   fetchPendingBetsByPeriod,
   getUserDoc,
+  incrementUserBonus,
   subscribeBets,
   subscribeOwnUser,
   subscribeRounds,
@@ -534,9 +535,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: Date.now(),
       });
 
-      // Distribute referral commissions
+      // Distribute referral commissions up the chain
       try {
-        const rates = [0.005, 0.0025, 0.001, 0.001];
+        const rates = [0.005, 0.0025, 0.001, 0.001]; // L1=0.5%, L2=0.25%, L3=0.1%, L4=0.1%
         let currentLevel = 0;
         let currentUser = user;
 
@@ -548,17 +549,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           const commissionAmount = Number((amount * rates[currentLevel]).toFixed(2));
           if (commissionAmount > 0) {
-            await updateUserDoc(inviter.id, {
-              balance: Number((inviter.balance + commissionAmount).toFixed(2))
-            });
+            // Use atomic DB increment — avoids stale-cache overwrite race condition
+            await incrementUserBonus(inviter.id, commissionAmount);
 
             await createTransaction({
               userId: inviter.id,
               userName: inviter.name,
-              type: 'commission',
+              type: 'payout',
               amount: commissionAmount,
               status: 'completed',
-              method: `L${currentLevel + 1} from ${user.name}`,
+              method: `Commission L${currentLevel + 1} from ${user.name}`,
               createdAt: Date.now(),
             });
           }
@@ -567,7 +567,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           currentLevel++;
         }
       } catch (err) {
-        console.error("Failed to distribute commission:", err);
+        console.error('Referral commission error:', err);
       }
 
       return { ok: true, message: `Bet placed on period ${periodId}.` };
